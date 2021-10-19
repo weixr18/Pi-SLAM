@@ -19,16 +19,14 @@ int main(void)
     pinMode(GPIO_move_direction_a, OUTPUT); 
     pinMode(GPIO_move_direction_b, OUTPUT); 
     pinMode(GPIO_pwm_front_left, PWM_OUTPUT); 
+    softPwmCreate(GPIO_pwm_front_left, 0, 100);
 
     // loop
     int i = 0;
     while(true)
     {
-        char c = getchar();
-        if(c == "b"){
-            break;
-        }
 
+        printf("i = %d\n", i);
         if(i % 2 == 0){
             digitalWrite(GPIO_move_direction_a, HIGH);
             digitalWrite(GPIO_move_direction_b, LOW);
@@ -39,7 +37,7 @@ int main(void)
         }
         
         softPwmWrite(GPIO_pwm_front_left, 20);
-        delay(5000);
+        delay(1000);
         i++;
     }
     return 0;
