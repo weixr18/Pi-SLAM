@@ -22,9 +22,20 @@ int main(void)
     // loop
     while(true)
     {
-        softPwmWrite(GPIO_pwm_front_left, 50);
-        delay(1000);
+        char c = getchar();
+        if(c == "b"){
+            break;
+        }
+        for (bright = 0; bright < 100; bright += 10)
+        {
+            softPwmWrite(GPIO_pwm_front_left, bright);
+            delay(20);
+        }
+        for (bright = 100; bright > 0; bright-= 10)
+        {
+            softPwmWrite(GPIO_pwm_front_left, bright);
+            delay(20);
+        }
     }
-
     return 0;
 }
