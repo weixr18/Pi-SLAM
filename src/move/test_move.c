@@ -8,7 +8,7 @@
 
 bool continue_loop;
 
-unsigned int __stdcall keyboard_interrupt(void)
+unsigned int keyboard_interrupt(void)
 {
     while(continue_loop){
         if(getch()=='b'){
@@ -41,7 +41,7 @@ int main(void)
 {
     continue_loop = true;
     pthread_t id;
-　　int res = pthread_create(&id, NULL, (unsigned int *)keyboard_interrupt, NULL);
+    int res = pthread_create(&id, NULL, (unsigned int *)keyboard_interrupt, NULL);
     _beginthreadex(0, 0, keyboard_interrupt, 0, 0, 0);
 
     if(wiringPiSetup() == -1)
