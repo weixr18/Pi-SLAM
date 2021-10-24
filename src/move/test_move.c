@@ -6,7 +6,7 @@
 
 #include "../utils/pins.h"
 
-#define SET_SPEED 10
+#define SET_SPEED 15
 
 bool continue_loop;
 
