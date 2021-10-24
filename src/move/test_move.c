@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <process.h>
+#include <pthread.h>
 #include <wiringPi.h>
 #include <softPwm.h>
 
@@ -8,7 +8,7 @@
 
 bool continue_loop;
 
-unsigned int __stdcall keyboard_interrupt(void *par)
+unsigned int __stdcall keyboard_interrupt(void)
 {
     while(continue_loop){
         if(getch()=='b'){
@@ -40,6 +40,8 @@ void setup(void){
 int main(void)
 {
     continue_loop = true;
+    pthread_t id;
+　　int res = pthread_create(&id, NULL, (unsigned int *)keyboard_interrupt, NULL);
     _beginthreadex(0, 0, keyboard_interrupt, 0, 0, 0);
 
     if(wiringPiSetup() == -1)
@@ -59,5 +61,6 @@ int main(void)
     }
 
     softPwmWrite(GPIO_pwm_front_left, 0);
+    pthread_join(id, NULL);
     return 0;
 }
