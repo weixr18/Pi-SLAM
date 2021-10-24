@@ -97,7 +97,7 @@ int main(void)
         delay(1000);
     }
 
-    exit_program()
+    exit_program();
     // pthread_join(id, NULL);
     return 0;
 }
