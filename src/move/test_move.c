@@ -8,7 +8,7 @@
 
 bool continue_loop;
 
-void keyboard_interrupt(void* param)
+void* keyboard_interrupt(void* param)
 {
     while(continue_loop){
         if(getchar()=='b'){
@@ -41,7 +41,7 @@ int main(void)
 {
     continue_loop = true;
     pthread_t id;
-    int res = pthread_create(&id, NULL, keyboard_interrupt, NULL);
+    int res = pthread_create(&id, NULL, (void* (*)(void*))keyboard_interrupt, NULL);
 
     if(wiringPiSetup() == -1)
     {
