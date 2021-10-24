@@ -6,6 +6,8 @@
 
 #include "../utils/pins.h"
 
+#define SET_SPEED 10
+
 bool continue_loop;
 
 void* keyboard_interrupt(void* param)
@@ -63,10 +65,10 @@ int main(void)
     digitalWrite(GPIO_move_direction_b, LOW);
     for(int i = 0; continue_loop; i++)
     {
-        softPwmWrite(GPIO_pwm_front_left, 20);
-        softPwmWrite(GPIO_pwm_front_right, 20);
-        softPwmWrite(GPIO_pwm_back_left, 20);
-        softPwmWrite(GPIO_pwm_back_right, 20);
+        softPwmWrite(GPIO_pwm_front_left, SET_SPEED);
+        softPwmWrite(GPIO_pwm_front_right, SET_SPEED);
+        softPwmWrite(GPIO_pwm_back_left, SET_SPEED);
+        softPwmWrite(GPIO_pwm_back_right, SET_SPEED);
         delay(1000);
     }
     exit_program();
