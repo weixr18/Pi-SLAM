@@ -52,8 +52,7 @@ int main(void)
     // loop
     digitalWrite(GPIO_move_direction_a, HIGH);
     digitalWrite(GPIO_move_direction_b, LOW);
-    int i = 0;
-    while(continue_loop)
+    for(int i = 0; continue_loop; i++)
     {
         printf("i = %d\n", i);
         if(i % 5 == 0){
