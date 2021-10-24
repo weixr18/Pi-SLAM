@@ -14,7 +14,7 @@ void* keyboard_interrupt(void* param)
         if(getchar()=='b'){
             continue_loop = false;
         }
-        delay(1000);
+        delay(100);
     }
     return NULL;
 }
@@ -40,7 +40,7 @@ int main(void)
 {
     continue_loop = true;
     pthread_t id;
-    int res = pthread_create(&id, NULL, (void* (*)(void*))keyboard_interrupt, NULL);
+    // int res = pthread_create(&id, NULL, (void* (*)(void*))keyboard_interrupt, NULL);
 
     if(wiringPiSetup() == -1)
     {
@@ -53,12 +53,13 @@ int main(void)
     digitalWrite(GPIO_move_direction_a, HIGH);
     digitalWrite(GPIO_move_direction_b, LOW);
     while(continue_loop)
-    {        
-        softPwmWrite(GPIO_pwm_front_left, 10);
+    {
+        printf("softPwmWrite 20 !!!\n");
+        softPwmWrite(GPIO_pwm_front_left, 20);
         delay(1000);
     }
 
     softPwmWrite(GPIO_pwm_front_left, 0);
-    pthread_join(id, NULL);
+    // pthread_join(id, NULL);
     return 0;
 }
