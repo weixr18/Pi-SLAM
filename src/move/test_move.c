@@ -19,7 +19,7 @@ void keyboard_interrupt(void* param)
     return;
 }
 
-void setup(void){
+void* setup(void){
 
     printf("Starting up ...\n");
 
