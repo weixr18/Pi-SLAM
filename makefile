@@ -1,5 +1,5 @@
 CC:= g++
-LIBS:= -lstdc++ -lwiringPi 
+LIBS:= -lstdc++ -lwiringPi -lpthread
 CXXFLAGS:= -std=c++11 -g -pthread
 DIR_SRC:= ./src/move
 DIR_OBJ:= ./obj/move
