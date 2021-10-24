@@ -52,10 +52,40 @@ int main(void)
     // loop
     digitalWrite(GPIO_move_direction_a, HIGH);
     digitalWrite(GPIO_move_direction_b, LOW);
+    int i = 0;
     while(continue_loop)
     {
-        printf("softPwmWrite 20 !!!\n");
-        softPwmWrite(GPIO_pwm_front_left, 20);
+        printf("i = %d\n", i);
+        if(i % 5 == 0){
+            softPwmWrite(GPIO_pwm_front_left, 20);
+            softPwmWrite(GPIO_pwm_front_right, 0);
+            softPwmWrite(GPIO_pwm_back_left, 0);
+            softPwmWrite(GPIO_pwm_back_right, 0);
+        }
+        else if(i % 5 == 1){
+            softPwmWrite(GPIO_pwm_front_left, 0);
+            softPwmWrite(GPIO_pwm_front_right, 20);
+            softPwmWrite(GPIO_pwm_back_left, 0);
+            softPwmWrite(GPIO_pwm_back_right, 0);
+        }
+        else if(i % 5 == 2){
+            softPwmWrite(GPIO_pwm_front_left, 0);
+            softPwmWrite(GPIO_pwm_front_right, 0);
+            softPwmWrite(GPIO_pwm_back_left, 20);
+            softPwmWrite(GPIO_pwm_back_right, 0);
+        }
+        else if(i % 5 == 3){
+            softPwmWrite(GPIO_pwm_front_left, 0);
+            softPwmWrite(GPIO_pwm_front_right, 0);
+            softPwmWrite(GPIO_pwm_back_left, 0);
+            softPwmWrite(GPIO_pwm_back_right, 20);
+        }
+        else if(i % 5 == 4){
+            softPwmWrite(GPIO_pwm_front_left, 20);
+            softPwmWrite(GPIO_pwm_front_right, 20);
+            softPwmWrite(GPIO_pwm_back_left, 20);
+            softPwmWrite(GPIO_pwm_back_right, 20);
+        }
         delay(1000);
     }
 
