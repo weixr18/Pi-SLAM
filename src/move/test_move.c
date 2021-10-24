@@ -36,6 +36,15 @@ void setup(void){
     softPwmCreate(GPIO_pwm_back_right, 0, 100);
 }
 
+void exit_program(void){
+    digitalWrite(GPIO_move_direction_a, LOW);
+    digitalWrite(GPIO_move_direction_b, LOW);
+    softPwmWrite(GPIO_pwm_front_left, 0);
+    softPwmWrite(GPIO_pwm_front_right, 0);
+    softPwmWrite(GPIO_pwm_back_left, 0);
+    softPwmWrite(GPIO_pwm_back_right, 0);
+}
+
 int main(void)
 {
     continue_loop = true;
@@ -88,7 +97,7 @@ int main(void)
         delay(1000);
     }
 
-    softPwmWrite(GPIO_pwm_front_left, 0);
+    exit_program()
     // pthread_join(id, NULL);
     return 0;
 }
