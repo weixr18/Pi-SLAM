@@ -7,7 +7,7 @@
 #include "../utils/pins.h"
 
 #define SET_SPEED 15
-#define START_SPEED 20
+#define START_SPEED 40
 
 bool continue_loop;
 
@@ -42,7 +42,7 @@ void setup(void){
     softPwmWrite(GPIO_pwm_front_right, START_SPEED);
     softPwmWrite(GPIO_pwm_back_left, START_SPEED);
     softPwmWrite(GPIO_pwm_back_right, START_SPEED);
-    delay(1000);
+    delay(300);
 }
 
 void exit_program(void){
