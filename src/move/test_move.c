@@ -8,10 +8,10 @@
 
 bool continue_loop;
 
-unsigned int keyboard_interrupt(void)
+unsigned int keyboard_interrupt(void* param)
 {
     while(continue_loop){
-        if(getch()=='b'){
+        if(getchar()=='b'){
             continue_loop = false;
         }
         delay(1000);
@@ -42,7 +42,6 @@ int main(void)
     continue_loop = true;
     pthread_t id;
     int res = pthread_create(&id, NULL, (unsigned int *)keyboard_interrupt, NULL);
-    _beginthreadex(0, 0, keyboard_interrupt, 0, 0, 0);
 
     if(wiringPiSetup() == -1)
     {
