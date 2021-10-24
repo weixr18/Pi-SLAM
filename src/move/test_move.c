@@ -16,7 +16,7 @@ void* keyboard_interrupt(void* param)
         }
         delay(1000);
     }
-    return;
+    return NULL;
 }
 
 void* setup(void){
