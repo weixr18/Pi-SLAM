@@ -19,7 +19,7 @@ void* keyboard_interrupt(void* param)
     return NULL;
 }
 
-void* setup(void){
+void setup(void){
 
     printf("Starting up ...\n");
 
@@ -34,7 +34,6 @@ void* setup(void){
     softPwmCreate(GPIO_pwm_front_right, 0, 100);
     softPwmCreate(GPIO_pwm_back_left, 0, 100);
     softPwmCreate(GPIO_pwm_back_right, 0, 100);
-
 }
 
 int main(void)
