@@ -41,7 +41,7 @@ int main(void)
 {
     continue_loop = true;
     pthread_t id;
-    int res = pthread_create(&id, NULL, keyboard_interrupt, NULL);
+    int res = pthread_create(&id, NULL, (void*)keyboard_interrupt, NULL);
 
     if(wiringPiSetup() == -1)
     {
