@@ -3,8 +3,8 @@ LIBS:= -lstdc++ -lwiringPi -lpthread
 CXXFLAGS:= -std=c++11 -g -pthread
 DIR_SRC:= ./src/move
 DIR_OBJ:= ./obj/move
-TARGET:= test_move
-OBJECTS := test_move.o 
+TARGET:= test_wheels
+OBJECTS := test_wheels.o 
 OBJECTS := $(addprefix $(DIR_OBJ)/,$(OBJECTS))
 
 all: $(TARGET)
