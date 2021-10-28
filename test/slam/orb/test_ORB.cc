@@ -42,6 +42,7 @@ int main()
 	// 6 绘制匹配结果
 	Mat img_match;
 	drawMatches(img1, keypoints1, img2, keypoints2, good_matches, img_match);
-    getchar();
+	imshow("img_match", img_match);
+    waitKey();
 	return 0;
 }
