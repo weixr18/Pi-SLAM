@@ -6,3 +6,4 @@ bin/*
 *.pdb
 *.swp
 .vscode
+test_*
