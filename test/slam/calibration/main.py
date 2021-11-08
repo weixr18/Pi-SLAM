@@ -31,13 +31,15 @@ def calibrate():
  
  
 if __name__ == "__main__":
-    file_dir = './imgs'
+    file_dir = '.\\imgs'
     pic_names = os.listdir(file_dir)
  
     # 由于棋盘为二维平面，设定世界坐标系在棋盘上，一个单位代表一个棋盘宽度，产生世界坐标系三维坐标
-    cross_corners = [7, 4] #棋盘方块交界点排列
+    CROSS_CORNER_H = 9
+    CROSS_CORNER_W = 6
+    cross_corners = [CROSS_CORNER_H, CROSS_CORNER_W] #棋盘方块交界点排列
     real_coor = np.zeros((cross_corners[0] * cross_corners[1], 3), np.float32)
-    real_coor[:, :2] = np.mgrid[0:7, 0:4].T.reshape(-1, 2)
+    real_coor[:, :2] = np.mgrid[0:CROSS_CORNER_H, 0:CROSS_CORNER_W].T.reshape(-1, 2)
  
     real_points = []
     real_points_x_y = []
@@ -45,6 +47,7 @@ if __name__ == "__main__":
  
     for pic in pic_names:
         pic_path = os.path.join(file_dir, pic)
+        print(pic_path)
         pic_data = cv.imread(pic_path)
         # 寻找到棋盘角点
         succ, pic_coor = cv.findChessboardCorners(pic_data, (cross_corners[0], cross_corners[1]), None)
@@ -55,4 +58,6 @@ if __name__ == "__main__":
  
             real_points.append(real_coor)
             real_points_x_y.append(real_coor[:, :2])
+        else:
+            print("Chess board corners not found.")
     calibrate()
