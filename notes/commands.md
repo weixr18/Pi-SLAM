@@ -12,6 +12,10 @@ Ctrl+Shift+T 终端
 
     sudo raspi-config
 
+### 重新启动
+
+    sudo shutdown -r now
+
 #### 查看系统信息
 
     uname -a
