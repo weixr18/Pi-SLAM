@@ -4,40 +4,162 @@
 #include <wiringPi.h>
 #include <softPwm.h>
 
-#include "../utils/pins.h"
+#include "pins.h"
 
-#define SET_SPEED 15
+#define SET_SPEED 20
 #define START_SPEED 40
+
+enum Direction
+{
+    Stop = 0,
+    Forward = 1,
+    Backward = 2,
+    Left = 3,
+    Right = 4,
+    TurnLeft = 5,
+    TurnRight = 6,
+};
+
 
 bool continue_loop;
 
-void* keyboard_interrupt(void* param)
+
+void set_direction(enum Direction d)
 {
-    while(continue_loop){
-        if(getchar()=='b'){
+    switch (d)
+    {
+    case Stop:
+        digitalWrite(GPIO_move_direction_FL_a, HIGH);
+        digitalWrite(GPIO_move_direction_FL_b, HIGH);
+        digitalWrite(GPIO_move_direction_FR_a, HIGH);
+        digitalWrite(GPIO_move_direction_FR_b, HIGH);
+        digitalWrite(GPIO_move_direction_BL_a, HIGH);
+        digitalWrite(GPIO_move_direction_BL_b, HIGH);
+        digitalWrite(GPIO_move_direction_BR_a, HIGH);
+        digitalWrite(GPIO_move_direction_BR_b, HIGH);
+        break;
+    case Forward:
+        digitalWrite(GPIO_move_direction_FL_a, HIGH);
+        digitalWrite(GPIO_move_direction_FL_b, LOW);
+        digitalWrite(GPIO_move_direction_FR_a, HIGH);
+        digitalWrite(GPIO_move_direction_FR_b, LOW);
+        digitalWrite(GPIO_move_direction_BL_a, HIGH);
+        digitalWrite(GPIO_move_direction_BL_b, LOW);
+        digitalWrite(GPIO_move_direction_BR_a, HIGH);
+        digitalWrite(GPIO_move_direction_BR_b, LOW);
+        break;
+    case Backward:
+        digitalWrite(GPIO_move_direction_FL_a, LOW);
+        digitalWrite(GPIO_move_direction_FL_b, HIGH);
+        digitalWrite(GPIO_move_direction_FR_a, LOW);
+        digitalWrite(GPIO_move_direction_FR_b, HIGH);
+        digitalWrite(GPIO_move_direction_BL_a, LOW);
+        digitalWrite(GPIO_move_direction_BL_b, HIGH);
+        digitalWrite(GPIO_move_direction_BR_a, LOW);
+        digitalWrite(GPIO_move_direction_BR_b, HIGH);
+        break;
+    case Left:
+        digitalWrite(GPIO_move_direction_FL_a, LOW);
+        digitalWrite(GPIO_move_direction_FL_b, HIGH);
+        digitalWrite(GPIO_move_direction_FR_a, HIGH);
+        digitalWrite(GPIO_move_direction_FR_b, LOW);
+        digitalWrite(GPIO_move_direction_BL_a, HIGH);
+        digitalWrite(GPIO_move_direction_BL_b, LOW);
+        digitalWrite(GPIO_move_direction_BR_a, LOW);
+        digitalWrite(GPIO_move_direction_BR_b, HIGH);
+        break;
+    case Right:
+        digitalWrite(GPIO_move_direction_FL_a, HIGH);
+        digitalWrite(GPIO_move_direction_FL_b, LOW);
+        digitalWrite(GPIO_move_direction_FR_a, LOW);
+        digitalWrite(GPIO_move_direction_FR_b, HIGH);
+        digitalWrite(GPIO_move_direction_BL_a, LOW);
+        digitalWrite(GPIO_move_direction_BL_b, HIGH);
+        digitalWrite(GPIO_move_direction_BR_a, HIGH);
+        digitalWrite(GPIO_move_direction_BR_b, LOW);
+        break;
+    case TurnLeft:
+        digitalWrite(GPIO_move_direction_FL_a, HIGH);
+        digitalWrite(GPIO_move_direction_FL_b, LOW);
+        digitalWrite(GPIO_move_direction_FR_a, LOW);
+        digitalWrite(GPIO_move_direction_FR_b, HIGH);
+        digitalWrite(GPIO_move_direction_BL_a, HIGH);
+        digitalWrite(GPIO_move_direction_BL_b, LOW);
+        digitalWrite(GPIO_move_direction_BR_a, LOW);
+        digitalWrite(GPIO_move_direction_BR_b, HIGH);
+        break;
+    case TurnRight:
+        digitalWrite(GPIO_move_direction_FL_a, LOW);
+        digitalWrite(GPIO_move_direction_FL_b, HIGH);
+        digitalWrite(GPIO_move_direction_FR_a, HIGH);
+        digitalWrite(GPIO_move_direction_FR_b, LOW);
+        digitalWrite(GPIO_move_direction_BL_a, LOW);
+        digitalWrite(GPIO_move_direction_BL_b, HIGH);
+        digitalWrite(GPIO_move_direction_BR_a, HIGH);
+        digitalWrite(GPIO_move_direction_BR_b, LOW);
+        break
+    }
+}
+
+
+void *keyboard_interrupt(void *param)
+{
+    while (continue_loop)
+    {
+        char c = getchar();
+        if (c == 'b' or c == 'q'){
             continue_loop = false;
+        }
+        else if (c == ' '){
+            set_direction(Stop);
+        }
+        else if (c == 'w'){
+            set_direction(Forward);
+        }
+        else if (c == 's'){
+            set_direction(Backward);
+        }
+        else if (c == 'a'){
+            set_direction(Left);
+        }
+        else if (c == 'd'){
+            set_direction(Right);
+        }
+        else if (c == 'j'){
+            set_direction(TurnLeft);
+        }
+        else if (c == 'k'){
+            set_direction(TurnRight);
         }
         delay(100);
     }
     return NULL;
 }
 
-void setup(void){
+void setup(void)
+{
 
     printf("Starting up ...\n");
 
     // pin initialization
-    pinMode(GPIO_move_direction_a, OUTPUT); 
-    pinMode(GPIO_move_direction_b, OUTPUT); 
-    pinMode(GPIO_pwm_front_left, PWM_OUTPUT); 
-    pinMode(GPIO_pwm_front_right, PWM_OUTPUT); 
-    pinMode(GPIO_pwm_back_left, PWM_OUTPUT); 
-    pinMode(GPIO_pwm_back_right, PWM_OUTPUT); 
+    pinMode(GPIO_move_direction_FL_a, OUTPUT);
+    pinMode(GPIO_move_direction_FL_b, OUTPUT);
+    pinMode(GPIO_move_direction_FR_a, OUTPUT);
+    pinMode(GPIO_move_direction_FR_b, OUTPUT);
+    pinMode(GPIO_move_direction_BL_a, OUTPUT);
+    pinMode(GPIO_move_direction_BL_b, OUTPUT);
+    pinMode(GPIO_move_direction_BR_a, OUTPUT);
+    pinMode(GPIO_move_direction_BR_b, OUTPUT);
+
+    pinMode(GPIO_pwm_front_left, PWM_OUTPUT);
+    pinMode(GPIO_pwm_front_right, PWM_OUTPUT);
+    pinMode(GPIO_pwm_back_left, PWM_OUTPUT);
+    pinMode(GPIO_pwm_back_right, PWM_OUTPUT);
+
     softPwmCreate(GPIO_pwm_front_left, 0, 100);
     softPwmCreate(GPIO_pwm_front_right, 0, 100);
     softPwmCreate(GPIO_pwm_back_left, 0, 100);
     softPwmCreate(GPIO_pwm_back_right, 0, 100);
-
     softPwmWrite(GPIO_pwm_front_left, START_SPEED);
     softPwmWrite(GPIO_pwm_front_right, START_SPEED);
     softPwmWrite(GPIO_pwm_back_left, START_SPEED);
@@ -45,9 +167,17 @@ void setup(void){
     delay(300);
 }
 
-void exit_program(void){
-    digitalWrite(GPIO_move_direction_a, LOW);
-    digitalWrite(GPIO_move_direction_b, LOW);
+void exit_program(void)
+{
+    digitalWrite(GPIO_move_direction_FL_a, HIGH);
+    digitalWrite(GPIO_move_direction_FL_b, HIGH);
+    digitalWrite(GPIO_move_direction_FR_a, HIGH);
+    digitalWrite(GPIO_move_direction_FR_b, HIGH);
+    digitalWrite(GPIO_move_direction_BL_a, HIGH);
+    digitalWrite(GPIO_move_direction_BL_b, HIGH);
+    digitalWrite(GPIO_move_direction_BR_a, HIGH);
+    digitalWrite(GPIO_move_direction_BR_b, HIGH);
+
     softPwmWrite(GPIO_pwm_front_left, 0);
     softPwmWrite(GPIO_pwm_front_right, 0);
     softPwmWrite(GPIO_pwm_back_left, 0);
@@ -58,9 +188,9 @@ int main(void)
 {
     continue_loop = true;
     pthread_t id;
-    int res = pthread_create(&id, NULL, (void* (*)(void*))keyboard_interrupt, NULL);
+    int res = pthread_create(&id, NULL, (void *(*)(void *))keyboard_interrupt, NULL);
 
-    if(wiringPiSetup() == -1)
+    if (wiringPiSetup() == -1)
     {
         printf("wiringPi Init error\n");
         exit(1);
@@ -68,9 +198,7 @@ int main(void)
     setup();
 
     // loop
-    digitalWrite(GPIO_move_direction_a, HIGH);
-    digitalWrite(GPIO_move_direction_b, LOW);
-    for(int i = 0; continue_loop; i++)
+    for (int i = 0; continue_loop; i++)
     {
         softPwmWrite(GPIO_pwm_front_left, SET_SPEED);
         softPwmWrite(GPIO_pwm_front_right, SET_SPEED);

@@ -4,7 +4,7 @@
 #include <wiringPi.h>
 #include <softPwm.h>
 
-#include "../utils/pins.h"
+#include "pins.h"
 
 bool continue_loop;
 
