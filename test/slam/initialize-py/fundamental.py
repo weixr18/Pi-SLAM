@@ -93,7 +93,7 @@ def get_RANSAC_fundamental_mat(ref_points, cur_points):
     score = 0    
     while i < k:
         i += 1
-        rand_8_index = np.random.choice(num_points, size=50, replace=False)
+        rand_8_index = np.random.choice(num_points, size=8, replace=False)
         sample_ref_points = ref_points[rand_8_index]
         sample_cur_points = cur_points[rand_8_index]
         cur_F = get_fundamental_mat(sample_ref_points, sample_cur_points)

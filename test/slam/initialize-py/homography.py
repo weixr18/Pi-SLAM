@@ -1,6 +1,5 @@
 import numpy as np
-from numpy.linalg import lstsq
-from numpy.linalg import inv
+from numpy.linalg import lstsq, inv
 
 from utils import THRESHOLD_H
 
@@ -34,7 +33,7 @@ def get_homography_mat(ref_points, cur_points):
         x = np.matmul(inv(A), bb)
     else:
         print("Error: too few points for cumputing H.")
-        return None
+        return False
     
     H = np.zeros([3,3])
     H[0, :] = x[:3]
@@ -85,7 +84,7 @@ def get_RANSAC_homography_mat(ref_points, cur_points):
     score = 0    
     while i < k:
         i += 1
-        rand_4_index = np.random.choice(num_points, size=4, replace=False)
+        rand_4_index = np.random.choice(num_points, size=8, replace=False)
         sample_ref_points = ref_points[rand_4_index]
         sample_cur_points = cur_points[rand_4_index]
 

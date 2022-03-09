@@ -2,11 +2,10 @@ import sys
 
 import cv2
 import numpy as np
-from numpy.linalg import svd
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
 
-from fundamental import get_RANSAC_fundamental_mat, get_fundamental_mat
+from fundamental import get_RANSAC_fundamental_mat
 from homography import get_RANSAC_homography_mat
 from decomposition import get_essential_mat, decomposite_H, decomposite_E
 # ref for reference
@@ -14,7 +13,7 @@ from decomposition import get_essential_mat, decomposite_H, decomposite_E
 
 def orb_match(img_ref, img_cur, img_name):
     """match orb characteristic points"""
-    MATCH_NUM = 200
+    MATCH_NUM = 50
 
     orb = cv2.ORB_create()
     keypoint1, descriptor1 = orb.detectAndCompute(img_ref, None)
@@ -114,13 +113,13 @@ if __name__ == "__main__":
     if R_H > 0.45:
         # select H
         print("Choose homography.")
-        R, t = decomposite_H(H, K, ref_points, cur_points)
+        R, t = decomposite_H(H, K, ref_points[inner_index_H], cur_points[inner_index_H])
     else:
         # select F
         print("Choose fundamental.")
         E = get_essential_mat(F, K)
-        R, t = decomposite_E(E, K, ref_points, cur_points)
-    print("R = ", R)
+        R, t = decomposite_E(E, K, ref_points[inner_index_F], cur_points[inner_index_F])
+    print("R = ", R) 
     print("t = ", t)
 
     # 3d points
