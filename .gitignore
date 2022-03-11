@@ -6,5 +6,4 @@ bin/*
 *.pdb
 *.swp
 .vscode
-test_*
 *.pdf
