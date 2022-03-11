@@ -5,9 +5,9 @@
 #include <softPwm.h>
 
 #include "pins.h"
+#define START_SPEED 25
 
-#define SET_SPEED 20
-#define START_SPEED 40
+bool continue_loop;
 
 enum Direction
 {
@@ -19,10 +19,6 @@ enum Direction
     TurnLeft = 5,
     TurnRight = 6,
 };
-
-
-bool continue_loop;
-
 
 void set_direction(enum Direction d)
 {
@@ -79,6 +75,16 @@ void set_direction(enum Direction d)
         digitalWrite(GPIO_move_direction_BR_b, LOW);
         break;
     case TurnLeft:
+        digitalWrite(GPIO_move_direction_FL_a, LOW);
+        digitalWrite(GPIO_move_direction_FL_b, HIGH);
+        digitalWrite(GPIO_move_direction_FR_a, HIGH);
+        digitalWrite(GPIO_move_direction_FR_b, LOW);
+        digitalWrite(GPIO_move_direction_BL_a, LOW);
+        digitalWrite(GPIO_move_direction_BL_b, HIGH);
+        digitalWrite(GPIO_move_direction_BR_a, HIGH);
+        digitalWrite(GPIO_move_direction_BR_b, LOW);
+        break;
+    case TurnRight:
         digitalWrite(GPIO_move_direction_FL_a, HIGH);
         digitalWrite(GPIO_move_direction_FL_b, LOW);
         digitalWrite(GPIO_move_direction_FR_a, LOW);
@@ -88,16 +94,6 @@ void set_direction(enum Direction d)
         digitalWrite(GPIO_move_direction_BR_a, LOW);
         digitalWrite(GPIO_move_direction_BR_b, HIGH);
         break;
-    case TurnRight:
-        digitalWrite(GPIO_move_direction_FL_a, LOW);
-        digitalWrite(GPIO_move_direction_FL_b, HIGH);
-        digitalWrite(GPIO_move_direction_FR_a, HIGH);
-        digitalWrite(GPIO_move_direction_FR_b, LOW);
-        digitalWrite(GPIO_move_direction_BL_a, LOW);
-        digitalWrite(GPIO_move_direction_BL_b, HIGH);
-        digitalWrite(GPIO_move_direction_BR_a, HIGH);
-        digitalWrite(GPIO_move_direction_BR_b, LOW);
-        break
     }
 }
 
@@ -131,6 +127,9 @@ void *keyboard_interrupt(void *param)
         else if (c == 'k'){
             set_direction(TurnRight);
         }
+        else{
+            set_direction(Stop);
+        }
         delay(100);
     }
     return NULL;
@@ -138,7 +137,6 @@ void *keyboard_interrupt(void *param)
 
 void setup(void)
 {
-
     printf("Starting up ...\n");
 
     // pin initialization
@@ -160,15 +158,13 @@ void setup(void)
     softPwmCreate(GPIO_pwm_front_right, 0, 100);
     softPwmCreate(GPIO_pwm_back_left, 0, 100);
     softPwmCreate(GPIO_pwm_back_right, 0, 100);
-    softPwmWrite(GPIO_pwm_front_left, START_SPEED);
-    softPwmWrite(GPIO_pwm_front_right, START_SPEED);
-    softPwmWrite(GPIO_pwm_back_left, START_SPEED);
-    softPwmWrite(GPIO_pwm_back_right, START_SPEED);
+
     delay(300);
 }
 
 void exit_program(void)
 {
+    // all high to lock the wheels
     digitalWrite(GPIO_move_direction_FL_a, HIGH);
     digitalWrite(GPIO_move_direction_FL_b, HIGH);
     digitalWrite(GPIO_move_direction_FR_a, HIGH);
@@ -200,10 +196,10 @@ int main(void)
     // loop
     for (int i = 0; continue_loop; i++)
     {
-        softPwmWrite(GPIO_pwm_front_left, SET_SPEED);
-        softPwmWrite(GPIO_pwm_front_right, SET_SPEED);
-        softPwmWrite(GPIO_pwm_back_left, SET_SPEED);
-        softPwmWrite(GPIO_pwm_back_right, SET_SPEED);
+        softPwmWrite(GPIO_pwm_front_left, START_SPEED);
+        softPwmWrite(GPIO_pwm_front_right, START_SPEED);
+        softPwmWrite(GPIO_pwm_back_left, START_SPEED);
+        softPwmWrite(GPIO_pwm_back_right, START_SPEED);
         delay(1000);
     }
     exit_program();

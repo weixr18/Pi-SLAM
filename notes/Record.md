@@ -459,7 +459,28 @@ typedef map<KeyFrame* const,g2o::Sim3,std::less<KeyFrame*>,
 
 测试无误后，先**不接树莓派电源**，尝试开启总开关，观察各电路板状态以及车轮是否会异常转动。正常情况下，上面板的降压和下面板的两个PWM驱动都应该亮红灯，表示电源正常。此外，如果车轮高速转动或有异响，可能说明电路有问题。
 
-#### 2.5.4 测试
+#### 2.5.4 代码解释
+
+利用wiringPi的API，我们可以通过代码操作树莓派的GPIO端口。
+
+首先，需要用pinMode函数指定GPIO是以PWM方式输出还是数字输出（即高低电平）
+
+    pinMode(GPIO_move_direction_BR_b, OUTPUT);
+    pinMode(GPIO_pwm_front_left, PWM_OUTPUT);
+
+如果使用PWM，还需要使用softPWMCreate函数指定PWM参数范围
+
+    softPwmCreate(GPIO_pwm_front_left, 0, 100);
+
+对于高低电平的写入，使用 digitalWrite 函数
+
+    digitalWrite(GPIO_move_direction_FL_a, LOW);
+
+而PWM使用 softPWMWrite 函数
+
+    softPwmWrite(GPIO_pwm_back_left, 0);
+
+#### 2.5.5 测试
 
 使用./src/test/move中的代码。
 
@@ -654,7 +675,7 @@ rosdep初始化
 
 说明安装完成。
 
-#### 3.1.4 ROS 安装
+#### 3.1.4 ROS编译
 
 在编译之前，可以扩展一下交换区，避免内存不足。
 
@@ -694,12 +715,371 @@ rosdep初始化
     roscore
     rosrun rviz rviz
 
-### 3.2 ROS控制小车运动
+编译完成后，ros_catkin_ws下的build_isolated和devel_isolated都可以删掉，占用空间太多。
 
-### 3.3 ROS + ORB-SLAM2
+### 3.2 ROS基本知识
+
+#### 3.2.1 catkin工作空间
+
+Catkin工作空间是创建、修改、编译catkin软件包的目录。catkin的工作空间，直观的形容就是一个仓库，里面装载着ROS的各种项目工程，便于系统组织管理调用。
+
+catkin的结构十分清晰，它包括了src、build、devel三个路径，在有些编译选项下也可能包括其他。但这三个文件夹是catkin编译系统默认的。它们的具体作用如下：
+
++ src/: ROS的catkin软件包（源代码包）
++ build/: catkin（CMake）的缓存信息和中间文件
++ devel/: 生成的目标文件（包括头文件，动态链接库，静态链接库，可执行文件等）、环境变量
+
+#### 3.2.2 软件包
+
+Package不仅是Linux上的软件包，也是catkin编译得基本单元，我们使用 catkin_make 编译的对象就是每
+个ROS的package。
+
+    +-- PACKAGE
+        +-- CMakeLists.txt # package的编译规则（必须）
+        +-- package.xml # package的描述信息（必须）
+        +-- src/ # 源代码
+        +-- include/ # 头文件
+        +-- scripts/ # 可执行脚本
+        +-- msg/ # 自定义消息
+        +-- srv/ # 自定义服务
+        +-- models/ # 3D模型文件
+        +-- urdf/
+        +-- launch/
+
++ **CMakeLists.txt**: 定义package的包名、依赖、源文件、目标文件等编译规则，是package不可少的成
+分
++ **package.xml**: 描述package的包名、版本号、作者、依赖等信息，是package不可少的成分
++ src/: 存放ROS的源代码，包括C++的源码和(.cpp)以及Python的module(.py)
++ include/: 存放C++源码对应的头文件
++ scripts/: 存放可执行脚本，例如shell脚本(.sh)、Python脚本(.py)
++ msg/: 存放自定义格式的消息(.msg)
++ srv/: 存放自定义格式的服务(.srv)
++ models/: 存放机器人或仿真场景的3D模型(.sda, .stl, .dae等)
++ urdf/: 存放机器人的模型描述(.urdf或.xacro)
++ launch/: 存放launch文件(.launch或.xml)
+
+开发自己的软件包：
+
+    catkin_create_pkg "packageName" "depends" 
+
+自动生成的结构：
+
+    +-- test_pkg
+        --- CMakeLists.txt
+        +-- include
+        +-- test_pkg
+        --- package.xml
+        +-- src
+
+常用的depends软件包：
+
+    std_msgs 标准message（见3.2.3）
+    rospy python语言接口
+    roscpp C++语言接口
+
+##### cmake常用命令
+
+    cmake_minimum_required() #CMake的版本号
+    project() #项目名称
+    find_package() #找到编译需要的其他CMake/Catkin package
+    catkin_python_setup() #catkin新加宏，打开catkin的Python Module的支持
+    add_message_files() #catkin新加宏，添加自定义Message/Service/Action文件
+    add_service_files()
+    add_action_files()
+    generate_message() #catkin新加宏，生成不同语言版本的msg/srv/action接口
+    catkin_package() #catkin新加宏，生成当前package的cmake配置，供依赖本包的其他软件包调用
+    add_library() #生成库
+    add_executable() #生成可执行二进制文件
+    add_dependencies() #定义目标文件依赖于其他目标文件，确保其他目标已被构建
+    target_link_libraries() #链接
+    catkin_add_gtest() #catkin新加宏，生成测试
+    install() #安装至本机
+
+##### package.xml 常用标签
+
+    <pacakge> 根标记文件
+    <name> 包名
+    <version> 版本号
+    <description> 内容描述
+    <maintainer> 维护者信息
+    <license> 软件许可证
+    <buildtool_depend> 编译构建工具，通常为catkin
+    <build_depend> 编译依赖项，与Catkin中的
+    <run_depend> 运行依赖项
+
+参考链接：[ros_wiki/package.xml](http://wiki.ros.org/catkin/package.xml#Build.2C_Run.2C_and_Test_Dependencies)
+
+#### 3.2.3 ROS通信架构
+
+##### node
+
+在ROS中，一个进程就是一个节点（Node），节点由Master统一管理。命令roscore就是启动Master的命令。
+
+启动node的命令是
+
+    rosrun "pkg_name" "node_name"
+
+如果node太多，就需要用.launch文件（本质是xml）来启动。
+
+    roslaunch "pkg_name" "file_name.launch"
+
+launch文件的常用标签是
+
+    <launch> <!--根标签-->
+    <node> <!--需要启动的node及其参数-->
+    <include> <!--包含其他launch-->
+    <machine> <!--指定运行的机器-->
+    <env-loader> <!--设置环境变量-->
+    <param> <!--定义参数到参数服务器-->
+    <rosparam> <!--启动yaml文件参数到参数服务器-->
+    <arg> <!--定义变量-->
+    <remap> <!--设定参数映射-->
+    <group> <!--设定命名空间-->
+    </launch> <!--根标签-->
+
+使用命令rqt_graph可以查看节点间的通信结构
+
+    rqt_graph
+
+##### topic
+
+ROS中的topic是一套node间通信的机制。使用topic通信必须遵照指定的格式。topic是单向通信机制，发出方称为publisher，接受方称为subscriber。常用的topic相关命令有：
+
+    rostopic list 列出当前所有的topic
+    rostopic info "topic_name" 显示某个topic的属性信息，可查看publisher和subscriber等
+    rostopic echo "topic_name" 显示某个topic的内容
+    rostopic pub "topic_name" "value" ... 向某个topic发布内容
+
+topic通信需要遵守预定义好的格式，这种格式被称为message(msg)。message的定义常放在.msg文件中。
+
+##### service
+
+service是一种临时双向通信机制，它不仅可以发送消息，同时还会有反馈。所以 service 包括两部分，一部分是请求方(Clinet)，另一部分是应答方/服务提供方(Server)。当需要某个数据时，Client就会发送一个request，等待server处理反馈回一个reply，这样通过类似"request-reply"的机制完成整个服务通信。
+
+常用的service命令：
+
+    rosservice list 显示服务列表
+    rosservice info service信息，可以查看server
+    rosservice type 打印服务类别
+    rosservice find 按服务类别查找服务
+    rosservice call 使用所提供的args调用服务
+    rosservice args 打印服务参数
+
+##### action
+
+action 是一种异步响应的通信方式，主要补充了 service 同步通信的不
+足。因为service 中采用同步通信机制，客户端的程序需要等到服务器响应后才能运行其他程序。一个action也有client和server，client是动作发起者，server是执行者。
+
+利用action进行请求响应，action的内容格式应包含三个部分，目标、反馈、结果。
+
++ 目标
+  + client要求server做的事情
++ 反馈
+  + server给client的实时反馈
++ 结果
+  + server给client的最终反馈
+
+action的规范文件格式如下：
+
+    uint32 dishwasher_id # Specify which dishwasher we want to use
+    ---
+    uint32 total_dishes_cleaned
+    ---
+    float32 percent_complete # Define feedback message
+
+要使用action，在CMakeLists.txt 里应该有如下的内容：
+
+    File: CMakeLists.txt
+    ...
+    find_package(catkin REQUIRED genmsg actionlib_msgs actionlib)
+    ...
+    add_action_files(DIRECTORY action FILES DoDishes.action)
+    generate_message(DEPENDENCIES actionlib_msgs)
+    add_action_files(DIRECTORY action FILES Handling.action)
+    generate_message(DEPENDENCIES actionlib_msgs)
+
+#### 3.2.4 topic通信例子
+
+##### tutorials/src/talker.cpp
+
+```cpp
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+#include <sstream>
+
+int main(int argc, char **argv)
+{
+    
+    //必须在最开始调用ros::init()。ros::init() 函数需要接受argc和argv。
+    ros::init(argc, argv, "talker");
+
+    // NodeHandle是node和ros通信的入口，第一个NodeHandle的构造会完整初始化node，
+    // 最后一个NodeHandle的析构会关闭node。
+    ros::NodeHandle n;
+
+    /**
+     * advertise() 函数用于建立一个topic。它返回一个publisher，可以调用
+     * 其publish()方法进行具体的通信。如果所有publisher和其copy都被析构，
+     * 那么该topic会结束。 参数1是topic的名字，参数2是缓冲区的大小。
+     */
+    ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
+
+    // ros::Rate ros自带计时器，10代表10Hz
+    ros::Rate loop_rate(10);
+    int count = 0;
+
+    // ros::ok ???
+    while (ros::ok())
+    {
+        //msg object
+        std_msgs::String msg;
+        std::stringstream ss;
+        ss << "hello world " << count;
+        msg.data = ss.str();
+        // ROS 控制台回显
+        ROS_INFO("%s", msg.data.c_str());
+        // 调用 publish()
+        chatter_pub.publish(msg);
+        // 调用topic的回调函数
+        ros::spinOnce();
+        // 计时器沉默一阵子
+        loop_rate.sleep();
+        ++count;
+    }
+    return 0;
+}
+
+```
+
+##### tutorials/src/listener.cpp
+
+```cpp
+
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+#include <sstream>
+
+int main(int argc, char **argv)
+{
+    
+    //必须在最开始调用ros::init()。ros::init() 函数需要接受argc和argv。
+    ros::init(argc, argv, "talker");
+
+    // NodeHandle是node和ros通信的入口，第一个NodeHandle的构造会完整初始化node，
+    // 最后一个NodeHandle的析构会关闭node。
+    ros::NodeHandle n;
+
+    /**
+     * 用advertise() 建立一个topic并返回一个publisher。可以调用
+     * 其publish()方法进行具体的通信。如果所有publisher和其copy都被析构，
+     * 那么该topic会结束。 参数1是topic的名字，参数2是缓冲区的大小。
+     */
+    ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
+
+    // ros::Rate ros自带计时器，10代表10Hz
+    ros::Rate loop_rate(10);
+    int count = 0;
+
+    // ros::ok ???
+    while (ros::ok())
+    {
+        //msg object
+        std_msgs::String msg;
+        std::stringstream ss;
+        ss << "hello world " << count;
+        msg.data = ss.str();
+        // ROS 控制台回显
+        ROS_INFO("%s", msg.data.c_str());
+        // 调用 publish()
+        chatter_pub.publish(msg);
+        // 调用topic的回调函数
+        ros::spinOnce();
+        // 计时器沉默一阵子
+        loop_rate.sleep();
+        ++count;
+    }
+    return 0;
+}
+```
+
+##### tutorials/CMakeLists.txt
+
+```cmake
+cmake_minimum_required(VERSION 3.0.2)
+project(tutorials)
+
+## Find catkin and any catkin packages
+find_package(catkin REQUIRED COMPONENTS
+ roscpp
+ rospy
+ std_msgs
+ genmsg
+)
+## Generate added messages and services
+generate_messages(DEPENDENCIES std_msgs)
+
+## Declare a catkin package
+catkin_package()
+
+## Build talker and listener
+include_directories(include ${catkin_INCLUDE_DIRS})
+
+add_executable(talker src/talker.cpp)
+target_link_libraries(talker ${catkin_LIBRARIES})
+add_dependencies(talker tutorials_generate_messages_cpp)
+
+add_executable(listener src/listener.cpp)
+target_link_libraries(listener ${catkin_LIBRARIES})
+add_dependencies(listener tutorials_generate_messages_cpp)
+```
+
+##### tutorials/package.xml
+
+```xml
+<?xml version="1.0"?>
+    <package format="2">
+    <name>tutorials</name>
+    <version>0.0.0</version>
+    <description>The tutorials package</description>
+    <maintainer email="weixr18@mails.tsinghua.edu.cn">Beiming</maintainer>
+    <license>TODO</license>
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <build_depend>roscpp</build_depend>
+    <build_depend>rospy</build_depend>
+    <build_depend>std_msgs</build_depend>
+
+    <build_export_depend>roscpp</build_export_depend>
+    <build_export_depend>rospy</build_export_depend>
+    <build_export_depend>std_msgs</build_export_depend>
+    
+    <exec_depend>roscpp</exec_depend>
+    <exec_depend>rospy</exec_depend>
+    <exec_depend>std_msgs</exec_depend>
+</package>
+```
+
+编译：
+
+    cd ~/catkin_ws
+    catkin_make
+
+或直接 cm 也可
+
+启动：在三个终端分别执行
+
+    roscore
+    rosrun tutorials listener
+    rosrun tutorials talker
+
+### 3.3 ROS控制小车运动
+
+#### 3.3.1 
+
+### 3.4 ROS + ORB-SLAM2
 
 ## 4 主动探索
 
-## 5 主动回访
+## 5 主动重访
 
 ## 6 主动闭环

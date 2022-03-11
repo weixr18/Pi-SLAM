@@ -12,7 +12,7 @@ Ctrl+Shift+T 终端
 
     sudo raspi-config
 
-### 重新启动
+#### 重新启动
 
     sudo shutdown -r now
 
@@ -39,3 +39,15 @@ Ctrl+Shift+T 终端
     cat /sys/class/thermal/thermal_zone0/temp
 
 返回值除以1000是摄氏度温度
+
+## 文件操作
+
+### 压缩和解压
+
+压缩
+
+    tar -czvf myetc.tar.gz etc
+
+解压
+
+    tar -xzvf myetc.tar.gz etc
