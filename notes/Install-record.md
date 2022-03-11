@@ -1147,8 +1147,158 @@ add_dependencies(listener tutorials_generate_messages_cpp)
 
 ### 3.3 ROS + ORB-SLAM2
 
-## 4 主动探索
+#### 3.3.1 ORB-SLAM2的ROS模块编译
 
-## 5 主动重访
+ORB-SLAM2和ROS接口的部分是单独的一个模块，需要单独编译。
 
-## 6 主动闭环
+首先，将ORB-SLAM2的包目录加到ROS包目录中（建议写入~/.bashrc）
+
+    export ROS_PACKAGE_PATH=${ROS_PACKAGE_PATH}:ORB_SLAM_PATH/ORB_SLAM2/Examples/ROS
+
+在编译之前，**必须扩展交换区**，否则会出现内存不足。
+
+    sudo nano /etc/dphys-swapfile
+
+然后编辑 CONF_SWAPSIZE 变量：从100增加到2048
+
+重新启动交换服务:
+
+    sudo /etc/init.d/dphys-swapfile stop
+    sudo /etc/init.d/dphys-swapfile start
+
+进行编译！
+
+    chmod +x build_ros.sh
+    ./build_ros.sh
+
+如果没有报错就可以了，这个过程很快，10分钟以内。
+
+设置环境变量
+
+    source ORB_SLAM2/Examples/ROS/ORB_SLAM2/build/devel/setup.bash
+    source ~/.bashrc
+
+最后，要记得将交换区改回来
+
+    sudo nano /etc/dphys-swapfile
+
+然后编辑 CONF_SWAPSIZE 变量：从2048减小到100
+
+重新启动交换服务:
+
+    sudo /etc/init.d/dphys-swapfile stop
+    sudo /etc/init.d/dphys-swapfile start
+
+#### 3.3.2 安装usb_cam包
+
+ROS连接树莓派相机需要先安装usb_cam包。在安装这个包之前，需要手动安装依赖camera_info_manager。根据官网提示，需要先去下载源码
+
+    https://github.com/ros-perception/image_common/tree/hydro-devel
+
+注意分支是hydro-devel不要搞错。把项目里camera_info_manager文件夹放到ros_catkin_ws/src下。
+
+然后下载usb_cam的源码
+
+    https://github.com/ros-drivers/usb_cam/tree/master
+
+注意是master而不是默认的develop分支，代码也放到ros_catkin_ws/src下。
+
+进入工作空间，开始编译
+
+    cd ~/ros_catkin_ws
+    catkin_make
+
+**[BUG.11]** PIX_FMT_RGB24等符号无定义
+
+只要把这些变量从PIX_FMT_RGBXX变成AV_PIX_FMT_RGBXX即可。
+
+**[BUG.12]** avcodec_alloc_frame 无定义
+
+改为av_frame_alloc即可。
+
+看到
+
+    [100%] Built target usb_cam_node
+
+就说明编译完成啦！
+
+#### 3.3.3 ROS连接树莓派相机
+
+要先安装一下image-view包来测试。首先，还是找github地址
+
+    https://github.com/ros-perception/image_pipeline/tree/indigo
+
+下载源码后，找到里面的image_view文件夹，放到ros_catkin_ws/src下。
+
+进入工作空间，开始编译
+
+    cd ~/ros_catkin_ws
+    catkin_make
+
+看到
+
+    [100%] Built target stereo_view
+
+就说明编译成功。
+
+直接运行usb_cam提供的测试
+
+    roslaunch usb_cam usb_cam-test.launch
+
+如果摄像头是正常挂载的，就应该能从屏幕上看到摄像头的实时图像了！
+
+#### 3.3.4 修改订阅话题名
+
+在调试SLAM之前，需要先修改一个订阅话题名。找到ros_mono.cc
+
+    vim ~/Pi-aSLAM/ORB_SLAM2-master/Examples/ROS/ORB_SLAM2/src/ros_mono.cc
+
+找到第64行
+
+    ros::Subscriber sub = nodeHandler.subscribe("/camera/image_raw", 1, &ImageGrabber::GrabImage,&igb);
+
+修改为
+
+    ros::Subscriber sub = nodeHandler.subscribe("/usb_cam/image_raw", 1, &ImageGrabber::GrabImage,&igb);
+
+然后重新编译ORB_SLAM2。在编译之前，**必须扩展交换区**，否则会出现内存不足。
+
+    sudo nano /etc/dphys-swapfile
+
+然后编辑 CONF_SWAPSIZE 变量：从100增加到2048
+
+重新启动交换服务:
+
+    sudo /etc/init.d/dphys-swapfile stop
+    sudo /etc/init.d/dphys-swapfile start
+
+开始编译：
+
+    cd ~/Pi-aSLAM/ORB_SLAM2-master/
+    ./build_ros.sh
+
+将交换区改回原来大小
+
+    sudo nano /etc/dphys-swapfile
+
+然后编辑 CONF_SWAPSIZE 变量：2048减小到100
+
+重新启动交换服务:
+
+    sudo /etc/init.d/dphys-swapfile stop
+    sudo /etc/init.d/dphys-swapfile start
+
+#### 3.3.5 ROS+实时单目SLAM调试
+
+终于，来到了见证奇迹的时刻！
+
+首先打开第一个终端，运行usb_cam模块
+
+    roslaunch usb_cam usb_cam-test.launch
+
+第二个终端，运行ORB-SLAM2
+
+    cd ~/Pi-aSLAM/ORB_SLAM2-master/
+    rosrun ORB_SLAM2 Mono Vocabulary/ORBvoc.txt Examples/ROS/ORB_SLAM2/Asus.yaml
+
+Vocabulary的加载会持续一段时间（140多MB）…… 经过一段时间的等待，ORB-SLAM2的两个图形界面会出现在你的屏幕上。小心的把摄像头对准一个纹理丰富的区域，然后慢慢开始移动，SLAM就会开始了！
