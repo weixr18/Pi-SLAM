@@ -21,6 +21,7 @@ Ctrl+Shift+T 终端
     uname -a
     cat /proc/vesion
     cat /etc/issue
+    cat /etc/os-release
     lsb_release -a
     screenfetch
 
@@ -38,4 +39,3 @@ Ctrl+Shift+T 终端
     cat /sys/class/thermal/thermal_zone0/temp
 
 返回值除以1000是摄氏度温度
-

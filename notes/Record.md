@@ -70,6 +70,29 @@ Ctrl+Shift+T 可以打开terminal
 
 电脑需要先安装VNC Viewer。打开，填写用户名密码，注意IP地址。
 
+### 1.4 网络问题
+
+#### 1.4.1 网络重连
+
+如果电脑的wifi连接切换，树莓派就会出现连不到网的情况。尝试从树莓派ping境内网站
+
+    ping www.baidu.com
+
+如果不通，将适配器设置里的共享关闭再重新打开，然后拔掉网线重新插上，再次连接后就可以了。
+
+#### 1.4.2 github连接
+
+电脑不开梯子，访问[ip-lookup](https://www.ipaddress.com/ip-lookup)，输入github.com，得到一条ip地址（如192.30.255.112）。打开系统DNS文件
+
+    sudo vi /etc/hosts
+
+加入条目
+
+    151.101.72.249 github.global.ssl.fastly.net
+    192.30.255.112 github.com
+
+修改完**需要重启**，否则无法生效。
+
 ## 2 软硬件配置调试
 
 ### 2.1 系统换源
@@ -539,3 +562,144 @@ L298N芯片自带PCB板，板上接的线分为电源和信号。电源的输入
     sudo ./test_move
 
 [BUG.6] 全车接通电源后，进行测试，后左轮和后右轮有时会在停止指令下转动，转动时有时无，后轮的L298N甚至一度发烫，判断为电路短路。经检查，是L298N和不锈钢车板之间绝缘未做好，导致触电短路。充分进行绝缘隔离后，问题解决。
+
+## 3 ROS配置调试
+
+### 3.1 安装ROS
+
+ORB-SLAM2支持在线和非在线运行，如果需要在线运行必须接入ROS.
+
+#### 3.1.1 准备工作
+
+首先，为ROS仓库创建仓库列表文件
+
+    sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+
+添加密钥
+
+    sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+
+显示imported:1，即说明添加成功。
+
+接下来，进行包管理器和系统更新
+
+    sudo apt-get update
+    sudo apt-get upgrade
+
+#### 3.1.2 安装rosdep
+
+首先安装依赖
+
+    sudo apt install -y python-rosdep python-rosinstall-generator python-wstool python-rosinstall build-essential cmake
+
+进行rosdep初始化之前，因为github服务器无法直连，需要将所有github的url修改为代理访问。 [参考链接](https://www.bilibili.com/read/cv13756256)
+
+    sudo vim /usr/lib/python2.7/dist-packages/rosdep2/sources_list.py
+    第72行添加https://ghproxy.com/
+    第311行添加url="https://ghproxy.com/"+url
+
+    sudo vim /usr/lib/python2.7/dist-packages/rosdistro/__init__.py
+    第68行添加https://ghproxy.com/
+    
+    sudo vim /usr/lib/python2.7/dist-packages/rosdep2/gbpdistro_support.py
+    第36行添加https://ghproxy.com/
+    第204行添加gbpdistro_url = "https://ghproxy.com/" + gbpdistro_url
+    
+    sudo vim /usr/lib/python2.7/dist-packages/rosdep2/rep3.py
+    第39行添加https://ghproxy.com/
+    
+    sudo vim /usr/lib/python2.7/dist-packages/rosdistro/manifest_provider/github.py
+    第68行添加https://ghproxy.com/
+    第119行添加https://ghproxy.com/ 
+
+rosdep初始化
+
+    rosdep update # 注意此命令不要使用superuser权限
+
+若显示"updated cache in ..."则说明初始化成功。如果一次不成功可以多试几次。
+
+#### 3.1.3 ROS包下载
+
+创建catkin工作空间
+
+    mkdir -p ~/ros_catkin_ws
+    cd ~/ros_catkin_ws
+
+这里我们安装Desktop版。除了ROS核心库以外，还包含可视化工具rqt，rviz，以及robot-generic库
+
+    rosinstall_generator desktop --rosdistro melodic --deps --wet-only --tar > melodic-desktop-wet.rosinstall
+
+如果没有输出说明正常. 此时的melodic-desktop-wet.rosinstall就是包含所有软件包源码地址的目录。为了方便下载，我们需要手动将所有地址更改为使用代理，即
+
+    https://github.com/xxx/xxx
+
+改为
+
+    https://ghproxy.com/https://github.com/xxx/xxx
+
+这一步可以自动替换完成。完成后，从该目录进行init
+
+    wstool init src melodic-desktop-wet.rosinstall
+
+如果出现update complete.说明下载完成。配置正确的话该过程耗时不会超过5分钟。
+
+接下来，安装依赖包
+
+    cd ~/ros_catkin_ws
+    rosdep install -y --from-paths src --ignore-src --rosdistro melodic -r --os=debian:buster
+
+如果正确配置镜像源，该过程耗时约30分钟，需要耐心等待。如果出现
+
+    #All required rosdeps installed successfully
+
+说明安装完成。
+
+#### 3.1.4 ROS 安装
+
+在编译之前，可以扩展一下交换区，避免内存不足。
+
+    sudo nano /etc/dphys-swapfile
+
+然后编辑 CONF_SWAPSIZE  变量：从100增加到2048
+
+重新启动交换服务:
+
+    sudo /etc/init.d/dphys-swapfile stop
+    sudo /etc/init.d/dphys-swapfile start
+
+开始编译！
+
+    sudo ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release --install-space /opt/ros/melodic
+
+该过程需要1-2h左右，需要耐心等待。
+
+编译成功后，添加ROS环境变量至bash。
+
+    source /opt/ros/melodic/setup.bash
+    echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+
+一定要记着把交换区设置改回来
+
+    sudo nano /etc/dphys-swapfile
+
+然后编辑 CONF_SWAPSIZE 变量：从2048减小到100
+
+重新启动交换服务:
+
+    sudo /etc/init.d/dphys-swapfile stop
+    sudo /etc/init.d/dphys-swapfile start
+
+最后，尝试运行ros_core和rviz，确认安装成功。
+
+    roscore
+    rosrun rviz rviz
+
+### 3.2 ROS控制小车运动
+
+### 3.3 ROS + ORB-SLAM2
+
+## 4 主动探索
+
+## 5 主动回访
+
+## 6 主动闭环
