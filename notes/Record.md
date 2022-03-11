@@ -224,7 +224,7 @@ cmake设置
 
 编译需要至少30分钟，可能会遇到各种bug，需要从头再来
 
-[BUG.1] 编译opencv-找不到cuda文件问题
+**[BUG.1]** 编译opencv-找不到cuda文件问题
 
 报错
 
@@ -306,7 +306,7 @@ Pangolin是一个绘图库，orb-slam2用它来画轨迹图。
     make
     sudo make install
 
-[BUG.2] CODEC_FLAG_GLOBAL_HEADER 未声明问题：
+**[BUG.2]** CODEC_FLAG_GLOBAL_HEADER 未声明问题：
 
 ```sh
 /home/pi/Downloads/Pangolin-0.5/src/video/drivers/ffmpeg.cpp:501:33: error: ‘CODEC_FLAG_GLOBAL_HEADER’ was not declared in this scope
@@ -358,7 +358,7 @@ ORB-SLAM2的编译也必须像2.2.6一样增加虚拟内存，否则会因为内
 
 编译耗时较长，至少30分钟，需要耐心等待。
 
-[BUG.3] 静态断言问题
+**[BUG.3]** 静态断言问题
 
 ```sh
 /home/pi/Pi-aSLAM/ORB_SLAM2-master/src/LoopClosing.cc:438:21:   required from here
@@ -417,7 +417,7 @@ typedef map<KeyFrame* const,g2o::Sim3,std::less<KeyFrame*>,
 
 如果照片保存成功就说明摄像头正常。-t参数是拍照延时，单位毫秒，默认值好像是5000.
 
-[BUG.4] 找不到摄像头
+**[BUG.4]** 找不到摄像头
 
     mmal: Cannot read camera info, keeping the defaults for OV5647
     mmal: mmal_vc_component_create: failed to create component 'vc.ril.camera' (1:ENOMEM)
@@ -515,7 +515,7 @@ L298N芯片自带PCB板，板上接的线分为电源和信号。电源的输入
 
 树莓派GPIO端口输出的电平是3.3V，而驱动L298N需要5V。因此我们需要用5V的逻辑门来进行升压。实际中我使用了SN74HC86N(CMOS异或门)接地实现同门来进行升压。由于有12根输入线，一共需要12个非门，即3个74HC86N芯片。
 
-[BUG.5] 同或门不工作问题：有时候会遇到输入高电平输出为0V，这是因为电源电压太高（5.10V就会出问题），使得3.3V左右的输入高电平被误认为是低电平。此时调整电源电压即可。
+**[BUG.5]** 同或门不工作问题：有时候会遇到输入高电平输出为0V，这是因为电源电压太高（5.10V就会出问题），使得3.3V左右的输入高电平被误认为是低电平。此时调整电源电压即可。
 
 #### 2.6.3 麦克纳姆轮
 
@@ -582,7 +582,7 @@ L298N芯片自带PCB板，板上接的线分为电源和信号。电源的输入
     make
     sudo ./test_move
 
-[BUG.6] 全车接通电源后，进行测试，后左轮和后右轮有时会在停止指令下转动，转动时有时无，后轮的L298N甚至一度发烫，判断为电路短路。经检查，是L298N和不锈钢车板之间绝缘未做好，导致触电短路。充分进行绝缘隔离后，问题解决。
+**[BUG.6]** 全车接通电源后，进行测试，后左轮和后右轮有时会在停止指令下转动，转动时有时无，后轮的L298N甚至一度发烫，判断为电路短路。经检查，是L298N和不锈钢车板之间绝缘未做好，导致触电短路。充分进行绝缘隔离后，问题解决。
 
 ## 3 ROS配置调试
 
@@ -841,6 +841,11 @@ launch文件的常用标签是
 
     rqt_graph
 
+使用命令rosnode可以对node进行操作
+
+    rosnode list # 查看所有node
+    rosnode kill [node_name] 杀掉一个node 
+
 ##### topic
 
 ROS中的topic是一套node间通信的机制。使用topic通信必须遵照指定的格式。topic是单向通信机制，发出方称为publisher，接受方称为subscriber。常用的topic相关命令有：
@@ -1059,24 +1064,88 @@ add_dependencies(listener tutorials_generate_messages_cpp)
 </package>
 ```
 
-编译：
+##### 编译
 
-    cd ~/catkin_ws
+    cd ~/ros_catkin_ws
     catkin_make
 
-或直接 cm 也可
+**[BUG.7]** Permission denied
 
-启动：在三个终端分别执行
+如果出现以下bug
+
+    [Errno 13] Permission denied: '/home/pi/ros_catkin_ws/build/.built_by'
+
+就需要更改一下catkin_ws的用户权限，把owner从root改为当前用户。
+
+    sudo chown $USER: -R ~/ros_catkin_ws
+
+##### 启动
+
+在三个终端分别执行
 
     roscore
     rosrun tutorials listener
     rosrun tutorials talker
 
-### 3.3 ROS控制小车运动
+#### 3.2.5 ROS控制小车运动
 
-#### 3.3.1 
+使用dumbpi文件夹下的代码。
 
-### 3.4 ROS + ORB-SLAM2
+**注意**：先使用**外接电源**（即不给小车电机供电），测试两个节点可以正常通信后，再切换到车载电源。
+
+首先，将dumbpi文件夹放到ros_catkin_ws/src下。进入上级文件夹，开始编译
+
+    cd ~/ros_catkin_ws
+    catkin_make
+
+编译完成后，首先在一个窗口中**启动roscore**。
+
+    roscore
+
+打开另一个窗口，**启动节点**
+
+    bash src/dumbpi/test_move.sh
+
+如果出现如下输出，说明正常
+
+    dumbpi_controller
+    Starting up ...
+    dumbpi_keyboard
+
+然后，可以通过w/s/d/a/j/k来控制小车。具体见代码dombpi/src/controller.cpp。
+
+代码逻辑：keyboard每100ms接收一个字符并发送给controller，controller根据字符指令改变运动方向。全程全部PWM信号保持恒定可驱动的占空比不变。
+
+#### 3.2.6 ROS相关BUG
+
+**[BUG.8]** 报错 找不到包
+
+    [rospack] Error: package 'dumbpi' not found
+
+解决方法：查看环境变量ROS_PACKAGE_PATH是否有workspace下的src目录
+
+    echo $ROS_PACKAGE_PATH
+
+如果没有，添加
+
+    export ROS_PACKAGE_PATH=${ROS_PACKAGE_PATH}:~/ros_catkin_ws/src
+
+**[BUG.9]** 报错 找不到可执行文件
+
+解决方法：确保~/.bashrc里有如下语句
+
+    source ~/ros_catkin_ws/devel/setup.bash
+
+添加后需要source或者新开一个bash
+
+    source ~/.bashrc
+
+**[BUG.10]** 多个ROS core
+
+    killall -9 roscore
+    killall -9 rosmaster
+
+### 3.3 ROS + ORB-SLAM2
 
 ## 4 主动探索
 

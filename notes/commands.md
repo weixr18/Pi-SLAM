@@ -42,7 +42,7 @@ Ctrl+Shift+T 终端
 
 ## 文件操作
 
-### 压缩和解压
+### tar
 
 压缩
 
@@ -51,3 +51,13 @@ Ctrl+Shift+T 终端
 解压
 
     tar -xzvf myetc.tar.gz etc
+
+### zip unzip
+
+    zip -r name.zip dir/name
+
+## 进程操作
+
+### 查找进程
+
+    ps aux | grep "name"
