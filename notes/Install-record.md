@@ -719,7 +719,7 @@ rosdep初始化
     roscore
     rosrun rviz rviz
 
-编译完成后，ros_catkin_ws下的build_isolated和devel_isolated都可以删掉，占用空间太多。
+编译完成后，ros_catkin_ws下的build_isolated和devel_isolated可以打包备份一下，然后删除。
 
 ### 3.2 ROS基本知识
 
