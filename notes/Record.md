@@ -154,7 +154,81 @@
 
 ### 3.1 获取地图点的BA误差
 
+在LocalMapping线程中，修改了调用局部BA的逻辑，使BA后保留optimizer对象。从该对象中优化图的边中即可获得每个被优化地图点的BA误差。
+
+#### 3.1.1 重编译g2o库
+
+为了获取图优化后每条边的误差，修改了g2o库的头文件。修改完需要重新编译g2o库
+
+在build_light.sh的开头加入：
+
+    echo "Configuring and building Thirdparty/g2o ..."
+    cd Thirdparty/g2o
+    mkdir build
+    cd build
+    cmake .. -DCMAKE_BUILD_TYPE=Release
+    make -j4
+    cd ../../..
+
+然后运行build_light.sh 即可重新编译g2o
+
+#### 3.1.2 其他错误
+
+[BUG.5] Map2d.h包含eigen头文件出错。
+
+    fatal error: Eigen/core: No such file or directory
+    #include "Eigen/core"
+
+解决方法：大小写出错，应为 #include "Eigen/Core"
+
+[BUG.6] 未知原因闪退
+
+问题定位：获取误差平方后尝试调用鲁棒核函数，但边可能未设置核函数
+解决方法：判断核函数是否设置，若设置则调用，否则直接使用平方值
+是否解决：是
+
 ### 3.2 建立error map
+
+#### 3.2.1 重定义Map2d数据结构
+
+将原有基于opencv的Mat的数据结构修改为基于结构体二维数组的结构，使用更加简单。
+
+[BUG.7] 未知原因崩溃
+
+报错如下，或无报错闪退。
+
+    OpenCV(3.4.3) /home/pi/Downloads/opencv-3.4.3/modules/core/src/matrix.cpp:405: error: (-215:Assertion failed) m.dims >= 2 in function 'Mat'
+
+问题原因：新建map时没有给成员变量赋值而是给一个局部变量赋了值，导致成员变量未初始化。
+解决方法：改成给成员变量赋值
+是否解决：部分
+
+#### 3.2.2 添加障碍点滤波函数
+
+[BUG.8] 障碍点滤波过程中未知原因崩溃
+问题定位：生成二值图像函数矩阵维度问题。
+问题原因：cv::Mat::zeros参数顺序是行数、列数、数据类型。
+要使(0,0)在图像左下角，行数应为z方向范围，列数应为x方向范围。
+同时使用at<>访问元素，形参顺序是行号、列号。行号应为z方向范围-z方向索引-1，列号应为x方向索引。
+是否解决：部分
+
+[BUG.9] 障碍点滤波过程中报错崩溃
+
+    OpenCV(3.4.3) /home/pi/Downloads/opencv-3.4.3/modules/imgproc/src/connectedcomponents.cpp:3928: error: (-215:Assertion failed) connectivity == 8 || connectivity == 4 in function 'connectedComponents_sub1'
+
+问题原因：调用connectedComponentsWithStats函数时少传了connectivity参数
+是否解决：部分
+
+[BUG.10] 障碍点滤波过程中未知原因崩溃
+问题原因：局部cv::Mat类型变量访问元素时使用的at类型参数不对，且行号未-1
+是否解决: 是
+
+[BUG.11] 障碍点滤波过程中背景被全部选中
+问题原因：选取连通域时未排除最大连通域
+解决方法：判断连通域外接矩形和全图大小关系，若大小接近则不选中
+是否解决：是
+
+#### 3.2.3 error map算法
 
 ### 3.3 根据error map路径规划
 

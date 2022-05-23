@@ -18,7 +18,6 @@ if __name__ == "__main__":
     contours, _ = cv2.findContours(
         map_1_uint8, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)  # 寻找连通域
 
-    # 第2,3连通域即为左右肺
     areas = [cv2.contourArea(cnt) for cnt in contours]
     indexes = np.argsort(areas)[::-1]
     map_2 = np.zeros([map_1.shape[0], map_1.shape[1]])
