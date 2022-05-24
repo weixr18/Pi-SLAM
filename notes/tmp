@@ -1,271 +1,103 @@
-/**
- * This file is part of project Active-ORB-SLAM. 
- * The author is Xinran Wei from Tsinghua University.
- * This project is under GPLv3 lisence.
- * */
-
-
-#include "Map2d.h"
-#include "Tracking.h"
-
-#include <iostream>
-#include <vector>
-#include <unistd.h>
-#include <math.h>
-#include <opencv2/core.hpp>
-#include <Eigen/Core>
-
-namespace ORB_SLAM2
-{
-
-
-Map2d::Map2d(){
-    
-}
-
-Map2d::~Map2d(){
-    
-}
-
-void Map2d::setTracker(Tracking* pTracker){
-    mpTracker = pTracker;
-}
-
-float getMax(float array[],int count){
-    float max=array[0];
-    for(int i=0;i<count;i++)
-        if(max<array[i])
-            max=array[i]; 
-    return max;
-}
-float getMin(float array[],int count){
-    float min=array[0];
-    for(int i=0;i<count;i++)
-        if(min>array[i])
-            min=array[i]; 
-    return min;
-}
-
-Eigen::Vector2d Map2d::get2dPos(cv::Mat& pos){
-
-    float fx = pos.at<float>(0, 0); // x
-    float fz = pos.at<float>(2, 0); // z
-    Eigen::Vector2d pos2d;
-    pos2d(0) = (int) ((fx - mfxMin) / MIN_DELTA_POS);
-    pos2d(1) = (int) ((fz - mfzMin) / MIN_DELTA_POS);
-    return pos2d;
-}
-
-
-
-void Map2d::mapResize(int xScale, int zScale){
-    if(xCale <= mxScale || zScale <= mzScale){
-        return;
-    }
-    MapGrid** newMapData = new MapGrid*[xScale];
-    for(int i = 0; i < xScale; i++){
-        newMapData[i] = new MapGrid[zScale];
-    }
-    
-    for(int i = 0; i < mxScale; i++){
-        for(int j = 0; j < mzScale; j++){
-            newMapData[i][j] = mMapData[i][j];
-        }
-    }
-    
-    for(int i = 0; i < mxScale; i++){
-        delete mMapData[i];
-    }
-    delete mMapData;
-    mMapData = newMapData;
-    mxScale = xScale;
-    mzScale = zScale;
-}
-
-void Map2d::newMap(int xScale, int zScale){
-    MapGrid** mMapData = new MapGrid*[xScale];
-    for(int i = 0; i < xScale; i++){
-        mMapData[i] = new MapGrid[zScale];
-    }
-    for(int i = 0; i < xScale; i++){
-        for(int j = 0; j < zScale; j++){
-            mMapData[i][j].type = GridType::GRID_UNKNOWN;
-            mMapData[i][j].baErrorSqr = -1.0;
-        }
-    }
-    mxScale = xScale;
-    mzScale = zScale;
-}
-
-void Map2d::clearMap(){
-    for(int i = 0; i < mxScale; i++){
-        for(int j = 0; j < mzScale; j++){
-            mMapData[i][j].type = GridType::GRID_UNKNOWN;
-            mMapData[i][j].baErrorSqr = -1.0;
-        }
-    }
-}
-
-
-cv::Mat Map2d::getBinMap(){
-
-}
-
-void Map2d::UpdateType(Map* map){
-    
-    std::cout << "Map2d updating!" << std::endl;
-    std::vector<MapPoint*> vpPoints = map->GetAllMapPoints();
-    // points[0] data type: CV_32F, channel = 1.
-    
-    // get ground point poses
-    int n = vpPoints.size();
-    cv::Mat points(3, n, 5);
-    int nGroundPoints = 0;
-    for(int i = 0; i < n; i++){
-        cv::Mat pos = (vpPoints[i])->GetWorldPos();
-        pos.col(0).copyTo(points.col(nGroundPoints));
-        nGroundPoints++;
-    }
-    cv::Mat groundPoints = points(cv::Range::all(), cv::Range(0, nGroundPoints));
-    
-    // get map size
-    cv::Mat xs = groundPoints(cv::Range(0, 1), cv::Range::all());
-    cv::Mat zs = groundPoints(cv::Range(2, 3), cv::Range::all());
-    double lfxMin, lfxMax, lfzMin, lfzMax;
-    cv::minMaxIdx(xs, &lfxMin, &lfxMax, nullptr, nullptr);
-    cv::minMaxIdx(zs, &lfzMin, &lfzMax, nullptr, nullptr);
-    mfxMin = (float)lfxMin;
-    mfxMax = (float)lfxMax;
-    mfzMin = (float)lfzMin;
-    mfzMax = (float)lfzMax;
-    
-    bool bTracking = mpTracker->mState==Tracking::OK;
-    float fxCam, fzCam;
-    if(bTracking){
-        // calc camera position
-        cv::Mat Tcw = mpTracker->mCurrentFrame.mTcw.clone();
-        cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t();
-        cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
-        mCamPos = twc.clone();
-        cv::Mat zAxis = (cv::Mat_<float>(3, 1) << 0, 0, 0.2);
-        mCamDirection = Rwc*zAxis;
+    /*
+    if(tmp_count % 5 == 0){            
+        // show bin map
+        cv::Mat* binMap = GetOccupyMapImage();
+        Eigen::Vector2d arrowHead = mCamDirection + mCamPos;
+        Eigen::Vector2d arrowHead2dPos = Get2dPos(arrowHead(0), arrowHead(1));
+        unsigned int xArrowHead = arrowHead2dPos(0);
+        unsigned int zArrowHead = arrowHead2dPos(1);
         
-        /*
-        std::cout << "Pos: (" << twc.at<float>(0,0) << ", " 
-            << twc.at<float>(1,0)<< ", " << twc.at<float>(2,0)
-            << ")" << std::endl;
-        */ 
-        
-        // consider camera position
-        fxCam = mCamPos.at<float>(0, 0);
-        fzCam = mCamPos.at<float>(2, 0);
-        mfxMin = min(mfxMin, (float)(fxCam-0.1));
-        mfzMin = min(mfzMin, (float)(fzCam-0.1));
-        mfxMax = max(mfxMax, (float)(fxCam+0.1));
-        mfzMax = max(mfzMax, (float)(fzCam+0.1));
-    }
-    
-    int xScale = (int) ((mfxMax - mfxMin) / MIN_DELTA_POS);
-    int zScale = (int) ((mfzMax - mfzMin) / MIN_DELTA_POS);
-    
-    // clear map
-    if(nullptr == mMapData){
-        newMap(mxScale, mzScale);
-    }
-    else if (mpMapData->cols == mMapSize){
-        clearMap();
-    }
-    else{
-        clearMap();
-        mapResize(xScale, zScale);
-    }
-
-    // // generate map
-    // if(nullptr == mpMapData){
-    //     mpMapData = new cv::Mat(cv::Mat::zeros(mMapSize, mMapSize, 0));
-    // }
-    // else if (mpMapData->cols == mMapSize){
-    //     mpMapData->setTo(0);
-    // }
-    // else{
-    //     mpMapData = new cv::Mat(cv::Mat::zeros(mMapSize, mMapSize, 0));
-    // }
-    
-    // set occupations
-    for(int i = 0; i < nGroundPoints; i++){
-        unsigned int x = (int) ((xs.at<float>(0, i) - mfxMin) / MIN_DELTA_POS);
-        unsigned int z = (int) ((zs.at<float>(0, i) - mfzMin) / MIN_DELTA_POS);
-        mpMapData->at<uchar>(mMapSize-z, x) = MAP_POINT; // to put (0,0) in leftdown corner.
-    }
-    
-    unsigned int xCam, zCam;
-    if(bTracking){
-        xCam = (int) ((fxCam - mfxMin) / MIN_DELTA_POS);
-        zCam = (int) ((fzCam - mfzMin) / MIN_DELTA_POS);
-        mpMapData->at<uchar>(mMapSize-zCam, xCam) = MAP_CAMERA;
-        mpMapData->at<uchar>(mMapSize-zCam, xCam+1) = MAP_CAMERA;
-        mpMapData->at<uchar>(mMapSize-zCam, xCam-1) = MAP_CAMERA;
-        mpMapData->at<uchar>(mMapSize-zCam+1, xCam) = MAP_CAMERA;
-        mpMapData->at<uchar>(mMapSize-zCam-1, xCam) = MAP_CAMERA;
-    }
-    
-    if(tmp_count % 1 == 0){    
-        /*
-        std::cout << "x max: " << mfxMax << ", x min: " << mfxMin << std::endl;
-        std::cout << "z max: " << mfzMax << ", z min: " << mfzMin << std::endl;
-        std::cout << "x Cam: " << fxCam << ", z Cam: " << fzCam << std::endl;
-        std::cout << "xScale: " << mxScale << ", zScale: " << mzScale << std::endl;
-        std::cout << "mMapSize: " << mMapSize << std::endl;
-        */
-        
-        // show direction
-        
-        cv::Mat arrowHead = mCamDirection + mCamPos;
-        unsigned int xArrowHead = (int) ((arrowHead.at<float>(0,0) - mfxMin) / MIN_DELTA_POS);
-        unsigned int zArrowHead = (int) ((arrowHead.at<float>(2,0) - mfzMin) / MIN_DELTA_POS);
-        
-        cv::arrowedLine(*mpMapData, cv::Point(xCam, mMapSize-zCam), \
-            cv::Point(xArrowHead, mMapSize-zArrowHead), 255, 1, 8, 0, 0.1);
-        cv::imshow("Map2d", *mpMapData);
-        sleep(10);
-        cv::destroyWindow("Map2d");
-        
+        cv::arrowedLine(*binMap, cv::Point(xCam, mzScale-zCam), \
+            cv::Point(xArrowHead, mzScale-zArrowHead), 255, 1, 8, 0, 0.1);
+        ShowImage(*binMap, "Occupation map");
     }
     tmp_count += 1;
-}
+    */
 
-float Map2d::getObstacleDistance(){
-    // TODO: calculate distance between camera and obstacle
-    float fxCam = mCamPos.at<float>(0, 0);
-    float fzCam = mCamPos.at<float>(2, 0);
-    unsigned int xCam = (int) ((fxCam - mfxMin) / MIN_DELTA_POS);
-    unsigned int zCam = (int) ((fzCam - mfzMin) / MIN_DELTA_POS);
+    /*** error map ***/
+typedef std:unordered_map<g2o::OptimizableGraph::Edge*, Eigen::Vector2d> PosMap;
+typedef std:pair<g2o::OptimizableGraph::Edge*, Eigen::Vector2d> PosMapItem;
+
+void Map2d::UpdateError(EdgeContainer& activeEdges){
+    // TODO
+    int xScale = m2dScale.xScale;
+    int zScale = m2dScale.zScale;
     
-    float fxDir = mCamDirection.at<float>(0, 0);
-    float fzDir = mCamDirection.at<float>(2, 0);
-    unsigned int xDir = (int) ((fxDir - mfxMin) / MIN_DELTA_POS);
-    unsigned int zDir = (int) ((fzDir - mfzMin) / MIN_DELTA_POS);
-    
-    float THETA_THRESHOLD = 0.866; //cos(30 degree)
-    float minDistance = 1.414 * mMapSize;
-    for(int i = 0; i < mMapSize; i++){
-        for(int j = 0; j < mMapSize; j++){
-            if(mpMapData->at<uchar>(mMapSize-j, i) != MAP_POINT){
-                continue;
-            }
-            int deltaX = i - xCam;
-            int deltaZ = j - zCam;
-            float lenthDelta = sqrt(deltaX*deltaX+deltaZ*deltaZ);
-            float lengthDir = sqrt(xDir*xDir+zDir*zDir);
-            float cosTheta = (float)(deltaX*xDir+deltaZ*zDir) / (lenthDelta*lengthDir);
-            if(cosTheta > THETA_THRESHOLD){
-                if(minDistance > lenthDelta){
-                    minDistance = lenthDelta;
-                }
-            }
+    // get updating (x,z) range
+    int xmin = 9999;
+    int xmax = -9999;
+    int zmin = 9999;
+    int zmax = -9999;
+    PosMap posMap();
+    for (int k = 0; k < static_cast<int>(activeEdges.size()); ++k) {
+        g2o::OptimizableGraph::Edge* e = activeEdges[k];
+        if(e == nullptr){
+            continue;
         }
-    }
-    return minDistance;
-}
+        ConstVtxMapPoint vMapPoint = static_cast<ConstVtxMapPoint>(e->vertices()[0]);
+        Eigen::Vector3d pos3d = vMapPoint->estimate();
+        Eigen::Vector2d pos2d = Get2dPos(pos3d);
+        int x = (int)pos2d(0);
+        int z = (int)pos2d(1);
+        if(x < 0 || x > xScale){
+            continue;
+        }
+        if(z < 0 || z > zScale){
+            continue;
+        }
+        if(x > xmax) xmax = x; 
+        if(x < xmin) xmin = x;
+        if(z > zmax) zmax = z; 
+        if(z < zmin) zmin = z; 
 
-} // namespace ORB_SLAM2
+        PosMapItem item(e, pos2d);
+        posMap.insert(item);
+    }
+    if(xmin > xmax || zmin > zmax){
+        std::cout << "[UpdateError] " << "Error: no edge in optimize graph." << std::endl;
+        return;
+    }
+    
+    // fill temp error map
+    int xRange = xmax + 1 - xmin;
+    int zRange = zmax + 1 - zmin;
+    cv::Mat* tmpErrorMap = new cv::Mat(cv::zeros(xRange, zRange, 6)); // CV_64FC1
+    for (int k = 0; k < static_cast<int>(activeEdges.size()); ++k) {
+        // get error
+        g2o::OptimizableGraph::Edge* e = activeEdges[k];
+        if(e == nullptr){
+            continue;
+        }
+        double errorSqr;
+        if (e->robustKernel()) {
+            Eigen::Vector3d tmp;
+            e->robustKernel()->robustify(e->chi2(), tmp);
+            errorSqr = tmp[0];
+        }
+        else{
+            errorSqr = e->chi2();
+        }
+        
+        if(posMap.find(e) == posMap.end()){
+            continue;
+        }
+        Eigen::Vector2d pos2d = posMap[e];
+        int tmpX = pos2d(0) - xmin;
+        int tmpZ = pos2d(1) - zmin;
+        tmpErrorMap->at<double>(tmpX, tmpZ) += errorSqr;
+    }
+    
+    // blur
+    cv::Mat* blurredErrorMap = new cv::Mat(cv::Mat::zeros(zScale, xScale, 6)); // CV_64FC1
+    GaussianBlur(*tmpErrorMap, *blurredErrorMap, cv::Size(11, 11), 0, 0);
+    
+    
+    std::unique_lock<std::mutex> mapUpdateLock(mMutexMapUpdate); // add lock
+    mMapData[x][z].baError += std::sqrt(errorSqr);
+
+    cv::Mat* errMap = GetErrorMapImage();
+    cv::Mat* colorErrMap = GetErrorMapImageColor(errMap);
+    ShowImage(*colorErrMap, "Color Error Map");
+    delete errMap;
+    delete colorErrMap;
+}

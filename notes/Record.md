@@ -193,7 +193,7 @@
 
 将原有基于opencv的Mat的数据结构修改为基于结构体二维数组的结构，使用更加简单。
 
-[BUG.7] 未知原因崩溃
+[BUG.7.1] 未知原因崩溃
 
 报错如下，或无报错闪退。
 
@@ -205,32 +205,167 @@
 
 #### 3.2.2 添加障碍点滤波函数
 
-[BUG.8] 障碍点滤波过程中未知原因崩溃
+[BUG.7.2] 障碍点滤波过程中未知原因崩溃
 问题定位：生成二值图像函数矩阵维度问题。
 问题原因：cv::Mat::zeros参数顺序是行数、列数、数据类型。
 要使(0,0)在图像左下角，行数应为z方向范围，列数应为x方向范围。
 同时使用at<>访问元素，形参顺序是行号、列号。行号应为z方向范围-z方向索引-1，列号应为x方向索引。
 是否解决：部分
 
-[BUG.9] 障碍点滤波过程中报错崩溃
+[BUG.7.3] 障碍点滤波过程中报错崩溃
 
     OpenCV(3.4.3) /home/pi/Downloads/opencv-3.4.3/modules/imgproc/src/connectedcomponents.cpp:3928: error: (-215:Assertion failed) connectivity == 8 || connectivity == 4 in function 'connectedComponents_sub1'
 
 问题原因：调用connectedComponentsWithStats函数时少传了connectivity参数
 是否解决：部分
 
-[BUG.10] 障碍点滤波过程中未知原因崩溃
+[BUG.7.4] 障碍点滤波过程中未知原因崩溃
 问题原因：局部cv::Mat类型变量访问元素时使用的at类型参数不对，且行号未-1
 是否解决: 是
 
-[BUG.11] 障碍点滤波过程中背景被全部选中
+[BUG.8] 障碍点滤波过程中背景被全部选中
 问题原因：选取连通域时未排除最大连通域
 解决方法：判断连通域外接矩形和全图大小关系，若大小接近则不选中
 是否解决：是
 
 #### 3.2.3 error map算法
 
+基于高斯模糊和特征点error值，进行error map计算。
+首先将每个特征点的error赋值到其所在的2D grid，多个特征点则叠加。
+其次，进行高斯模糊。
+
+[BUG.9.1] error map更新时未知原因崩溃
+问题定位：在地图还未初始化时local mapping线程就尝试更新error
+解决方法：local mapping线程判断2dmap初始化情况后再尝试更新
+是否解决：部分
+
+[BUG.9.2] error map更新时未知原因崩溃
+问题定位：2d map更新周期太长，尝试更新error时，2d地图和3d地图不匹配
+解决方法：controller线程减小更新地图周期
+是否解决：部分
+
+[BUG.9.3] error map更新时未知原因崩溃，报错如下
+
+    OpenCV(3.4.3) /home/pi/Downloads/opencv-3.4.3/modules/core/src/matrix.cpp:405: error: (-215:Assertion failed) m.dims >= 2 in function 'Mat'
+
+问题定位：某处调用cv::Mat复制构造函数时，传入对象的维度数量小于2
+问题定位：Controller线程调用UpdateType时产生了该opencv错误，矩阵维数不对。
+问题定位：获取相机位姿时，根据当前帧的Tcw矩阵获取，该矩阵可能还未赋值，因此维数不满足要求。
+解决方法：判定该矩阵行列是否满足要求，若不满足则不更新相机。
+是否解决：是
+
+[BUG.10.1] error map更新时，坐标点超出地图范围
+问题定位：2d map更新周期太长，尝试更新error时，2d地图和3d地图不匹配
+解决方法：controller线程减小更新地图周期
+是否解决：部分
+
+[BUG.10.2] error map更新时，坐标点超出地图范围
+问题定位：坐标转换出现问题，Vec3d到cv::Mat再到Vec2d出错
+解决方法：更改坐标转换方法
+是否解决：部分
+
+[BUG.10.3] error map更新时，坐标点超出地图范围
+问题定位：2d map更新不及时
+解决方法：在error map更新前强制更新2d map
+是否解决：是
+
+[BUG.11] 生成error地图时报错如下
+
+    OpenCV(3.4.3) /home/pi/Downloads/opencv-3.4.3/modules/imgproc/src/smooth.cpp:3820: error: (-215:Assertion failed) ksize.width > 0 && ksize.width % 2 == 1 && ksize.height > 0 && ksize.height % 2 == 1 in function 'createGaussianKernels'
+
+问题原因：高斯核大小必须是奇数(5,5)不能是偶数(4,4)
+是否解决：是
+
+[BUG.12] 出现throw const char*型闪退
+
+    terminate called after throwing an instance of 'char const*'
+    [Mono-3] process has died [pid 12584, exit code -6,
+
+问题定位：获取误差地图 GetErrorMapImage 时已有2D地图上没有误差。
+问题定位：
+    GetErrorMapImage() <- GetErrorMapImageColor() <- UpdateError() <- Update2dMap()
+    或
+    GetErrorMapImage() <- UpdateError() <- Update2dMap()
+    即LocalMapping线程试图绘图时，地图上没有误差
+问题原因：UpdateError在更新完成后绘图前释放了互斥量，导致Controller线程重新更新地图，抹掉了所有的error
+解决方法：1：不释放互斥量直到绘图结束
+解决方法：2：重写2D地图更新逻辑，更新地图不影响之前的error
+
+#### 3.2.4 重写2D地图更新逻辑
+
+2D地图应当遵守增量更新的规则。
+
++ 地图大小和占用情况更新逻辑
+  + 根据当前3维地图特征点的x和z范围，计算新的2D坐标范围
+  + 分配新的2D地图空间
+  + 将原坐标范围内的误差数据原样复制到新范围的对应范围内，占用数据不复制
+  + 删除原数据空间，更新数据索引和坐标范围索引
+  + 更新占用数据
+
++ 误差更新逻辑
+  + 获取所有待更新误差的特征点及其2D坐标范围
+  + 建立临时误差图，将特征点误差累计到临时特征图上
+  + 用临时误差图更新2D坐标范围内的2D地图
+    + 其中临时误差图误差为0的格点不更新
+
+[BUG.13] 编译问题
+
+    /home/pi/Pi-aSLAM/ORB_SLAM2-master/src/Map2d.cc:384:19: error: request for member ‘find’ in ‘ORB_SLAM2::posMap’, which is of non-class type ‘ORB_SLAM2::PosMap()’ {aka ‘std::unordered_map<g2o::OptimizableGraph::Edge*, Eigen::Matrix<double, 2, 1> >()’}
+         if(posMap.find(e) == posMap.end()){
+                   ^~~~
+问题原因：无参构造类的成员时不应该加括号 PosMap posMap(); -> PosMap posMap;
+是否解决：是
+
+[BUG.14.1] 未知原因无报错崩溃
+
+    [Mono-3] process has died [pid 14562, exit code -11,cmd /home/pi/Pi-aSLAM/ORB_SLAM2-master/Examples/ROS/ORB_SLAM2/Mono......
+
+问题定位：地图大小更新时，混淆了旧地图大小和新地图大小，造成数组越界。
+解决方法：清晰定义旧大小和新大小
+是否解决：部分
+
+[BUG.14.2] 未知原因无报错崩溃
+
+    [Mono-3] process has died [pid 14562, exit code -11,cmd /home/pi/Pi-aSLAM/ORB_SLAM2-master/Examples/ROS/ORB_SLAM2/Mono......
+
+问题定位：地图大小更新时，新地图大小比旧地图小，数据无法迁移
+解决方法：若新地图小，则不进行迁移
+是否解决：部分
+
+[BUG.14.3] 无报错崩溃
+
+    [Mono-3] process has died [pid 14562, exit code -11,cmd /home/pi/Pi-aSLAM/ORB_SLAM2-master/Examples/ROS/ORB_SLAM2/Mono......
+
+问题定位：新地图x和z一个维度小，另一个维度大，出现问题
+解决方法：新地图大小的各个边界都设置为观测的边界和原边界的极大值
+是否解决：是
+
+[BUG.15] Opencv报错
+
+    OpenCV(3.4.3) /home/pi/Downloads/opencv-3.4.3/modules/imgproc/src/colormap.cpp:516: error: (-5:Bad argument) cv::ColorMap only supports source images of type CV_8UC1 or CV_8UC3 in function 'operator()'
+
+问题原因：colormap只能对uchar型图片上色，不能对double型上色
+解决方法：转换为uchar型
+是否解决：是
+
+[TODO] 障碍滤波后应当重新调整地图尺寸
+问题：障碍滤波去掉了孤立的特征点，这些特征点不应当被考虑也不应当被计入
+优点: 减小2D map大小，节省空间和计算时间
+难点：地图范围除了考虑障碍外还要考虑相机位置
+
+#### 3.2.5 移动系统实验
+
+测试到目前为止完成的所有模块（Controller、2D障碍图维护、2De误差图维护）是否能在真实环境下协调工作。
+
 ### 3.3 根据error map路径规划
+
+#### 3.3.1 自由格点的判定和维护
+
+在障碍滤波后，相机和障碍的直接连线经过的格点应为自由格点
+地图数据更新时应保留之前的自由格点数据
+格点更新也应当采取局部更新策略。
+
+#### 3.3.2 基于自由格点和error大小的路径规划算法
 
 ### 3.4 路径规划的执行
 
