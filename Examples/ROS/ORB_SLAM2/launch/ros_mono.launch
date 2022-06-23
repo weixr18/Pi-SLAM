@@ -1,0 +1,11 @@
+<launch>
+    <arg name="path_to_vacabulary" default="/home/pi/Pi-aSLAM/ORB_SLAM2-master/Vocabulary/ORBvoc.txt"/>
+    <arg name="path_to_settings" default="/home/pi/Pi-aSLAM/ORB_SLAM2-master/Examples/ROS/ORB_SLAM2/Asus.yaml"/>
+    <!-- launch usb_cam -->
+    <include file="$(find usb_cam)/launch/usb_cam.launch"/>
+
+    <!--launch ORB-SLAM2 mono -->
+    <node name ="Mono" pkg="ORB_SLAM2" type="Mono" 
+        args="$(arg path_to_vacabulary) $(arg path_to_settings)" respawn="true" output="screen">
+    </node>
+</launch>

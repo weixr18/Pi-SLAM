@@ -139,6 +139,30 @@
 3. 电脑先切vscode再切VNC，win+G开始录屏
 4. 开始手持手机录像
 
+#### 1.2.5 VO全流程伪代码
+
+$Y_{map} = \empty$
+$X_{trail} = \{x_0\}$
+$FeaturePoints_{unmatched} = \empty$
+$Frame_0 = get\_frame()$
+$FeaturePoints_0 = get\_feature\_points(Frame_0)$
+
+$while(i \neq N):$
+    $\qquad Frame_i = get\_frame()$
+    $\qquad FeaturePoints_i = get\_feature\_points(Frame_i)$
+    $\qquad if(Y_{map} \neq \empty):$
+        $\qquad \qquad Z_{observable, i} = match(FeaturePoints_i, Y_{map})$
+        $\qquad \qquad Y_{observable, i} = find\_corresponding\_points(Z_{observable, i})$
+        $\qquad \qquad X_{related, i} = find\_corresponding\_positions(Y_{observable, i})$
+        $\qquad \qquad x_i = minimize\_remapping\_error(X_{related, i}, Y_{observable, i}, Z_{observable, i})$
+    $\qquad else:$
+        $\qquad \qquad x_i = Initialize(FeaturePoints_0, FeaturePoints_i)$
+    $\qquad X_{trail}.add(x_i)$
+    $\qquad PairsOfFeaturePoints_i = match(FeaturePoints_{unmatched}, FeaturePoints_i)$
+    $\qquad Y_{matched} = Triangle\_Measure(PairsOfFeaturePoints_i)$
+    $\qquad Y_{map}.add(Y_{matched})$
+    $\qquad i = i + 1$
+
 ### 1.3 2D地图调试
 
 [BUG.4] 障碍判定不鲁棒，容易被错误特征点迷惑导致障碍过近
@@ -352,20 +376,48 @@
 问题：障碍滤波去掉了孤立的特征点，这些特征点不应当被考虑也不应当被计入
 优点: 减小2D map大小，节省空间和计算时间
 难点：地图范围除了考虑障碍外还要考虑相机位置
+（后续决定不考虑该问题）
 
 #### 3.2.5 移动系统实验
 
-测试到目前为止完成的所有模块（Controller、2D障碍图维护、2De误差图维护）是否能在真实环境下协调工作。
+测试到目前为止完成的所有模块（Controller、2D障碍图维护、2D误差图维护）是否能在真实环境下协调工作。
+
+实验情况： 闭环前功能正常，需要一个比较封闭、明亮、纹理丰富的实验环境。闭环暂未测试过。
+
+#### 3.2.6 更改2D地图显示区域
+
+当前显示区域过大，主要信息都在左下角无法拖到中间。
+更改地图显示逻辑，只显示2D地图内相机和障碍滤波后占据格点的部分。
+
+#### 3.2.7 闭环实验
+
+[BUG.16] 未知原因OpenCV错误
+
+    OpenCV(3.4.3) /home/pi/Downloads/opencv-3.4.3/modules/core/src/matrix.cpp:423: error: (-215:Assertion failed) 0 <= _rowRange.start && _rowRange.start <= _rowRange.end && _rowRange.end <= m.rows in function 'Mat'
+
+问题定位：显示map的crop的时候范围超过了图像的范围
+解决方法：判断是否超过最大范围，超过则使用最大范围
+是否解决：是
+
+实验较为成功，闭环后2D地图和实际地图匹配。
 
 ### 3.3 根据error map路径规划
 
-#### 3.3.1 自由格点的判定和维护
+#### 3.3.1 闭环后error map刷新
 
-在障碍滤波后，相机和障碍的直接连线经过的格点应为自由格点
-地图数据更新时应保留之前的自由格点数据
-格点更新也应当采取局部更新策略。
+闭环后会进行闭环修正和全局BA，此时地图的占用情况会改变，全局BA也会产生新的error map。此时需要刷新error map
 
-#### 3.3.2 基于自由格点和error大小的路径规划算法
+[BUG.17] 进程崩溃
+
+    [Mono-3] process has died [pid 2068, exit code -11, cmd /home/pi/Pi-aSLAM/ORB_SLAM2-master/Examples/ROS/ORB_SLAM2/Mono /home/pi/Pi-aSLAM/ORB_SLAM2-master/Vocabulary/ORBvoc.txt /home/pi/Pi-aSLAM/ORB_SLAM2-master/Examples/ROS/ORB_SLAM2/Asus.yaml __name:=Mono __log:=/root/.ros/log/f2c3f322-de70-11ec-9e01-e45f014d7739/Mono-3.log].
+    log file: /root/.ros/log/f2c3f322-de70-11ec-9e01-e45f014d7739/Mono-3*.log
+
+问题定位：执行全局BA和闭环线程不是同一个线程。如果让全局BA线程初始化optimizer，该线程运行完毕就会销毁其资源。而闭环线程不会等待该线程完成就继续执行。因此，可能发生两种情况导致崩溃。
+问题原因：1.全局BA线程执行完毕后，LoopClosing线程使用optimizer资源，但该资源已被销毁。
+问题原因：2.全局BA线程还未分配资源时，LoopClosing线程就使用optimizer资源。
+解决方法：在真正运行全局BA的线程执行error map更新
+
+#### 3.3.2 基于error map的路径规划算法
 
 ### 3.4 路径规划的执行
 

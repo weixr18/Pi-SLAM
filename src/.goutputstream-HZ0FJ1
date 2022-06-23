@@ -1,0 +1,135 @@
+/**
+ * This file is part of project Active-ORB-SLAM. 
+ * The author is Xinran Wei from Tsinghua University.
+ * This project is under GPLv3 lisence.
+ * */
+
+
+#include "Map2d.h"
+#include "Tracking.h"
+#include <iostream>
+#include <vector>
+#include <unistd.h>
+
+namespace ORB_SLAM2
+{
+
+
+Map2d::Map2d(){
+	
+}
+
+Map2d::~Map2d(){
+	
+}
+
+void Map2d::setTracker(Tracking* pTracker){
+	mpTracker = pTracker;
+}
+
+float getMax(float array[],int count){
+    float max=array[0];
+    for(int i=0;i<count;i++)
+        if(max<array[i])
+            max=array[i]; 
+    return max;
+}
+float getMin(float array[],int count){
+    float min=array[0];
+    for(int i=0;i<count;i++)
+        if(min>array[i])
+            min=array[i]; 
+    return min;
+}
+
+void Map2d::Update(Map* map){
+	// TODO
+	
+	std::cout << "Map2d updating!" << std::endl;
+	std::vector<MapPoint*> vpPoints = map->GetAllMapPoints();
+	// points[0] data type: CV_32F, channel = 1.
+	
+	// get ground point poses
+	int n = vpPoints.size();
+	cv::Mat points(3, n, 5);
+	int nGroundPoints = 0;
+	for(int i = 0; i < n; i++){
+		cv::Mat pos = (vpPoints[i])->GetWorldPos();
+		if(pos.at<float>(0, 2) < 1){
+			pos.col(0).copyTo(points.col(nGroundPoints));
+			nGroundPoints++;
+		}
+	}
+	cv::Mat groundPoints = points(cv::Range::all(), cv::Range(0, nGroundPoints));
+	
+	// get map size
+	const float MIN_DELTA_POS = 0.01;
+	cv::Mat xs = groundPoints(cv::Range(0, 1), cv::Range::all());
+	cv::Mat ys = groundPoints(cv::Range(2, 3), cv::Range::all());
+	double fxMax, fxMin, fyMax, fyMin;
+	cv::minMaxIdx(xs, &fxMin, &fxMax, nullptr, nullptr);
+	cv::minMaxIdx(ys, &fyMin, &fyMax, nullptr, nullptr);
+	
+	// calc camera position
+	cv::Mat Tcw = mpTracker->mCurrentFrame.mTcw.clone();
+	cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t();
+    cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
+    cv::Mat currentPos = twc.clone();
+	
+	// consider camera position
+	float fxCam = currentPos.at<float>(0, 0);
+	float fyCam = currentPos.at<float>(2, 0);
+	fxMin = min(fxMin, (double)fxCam-0.1);
+	fyMin = min(fyMin, (double)fyCam-0.1);
+	fxMax = max(fxMax, (double)fxCam+0.1);
+	fyMax = max(fyMax, (double)fyCam+0.1);
+	int xScale = (int) ((fxMax - fxMin) / MIN_DELTA_POS);
+	int yScale = (int) ((fyMax - fyMin) / MIN_DELTA_POS);
+	mMapSize = max(max(xScale, yScale), 512);
+	
+	// generate map
+	if(mpMapData != nullptr){
+		delete mpMapData;
+	}
+	mpMapData = new cv::Mat(cv::Mat::zeros(mMapSize, mMapSize, 0));
+	for(int i = 0; i < nGroundPoints; i++){
+		unsigned int x = (int) ((xs.at<float>(0, i) - fxMin) / MIN_DELTA_POS);
+	    unsigned int y = (int) ((ys.at<float>(0, i) - fyMin) / MIN_DELTA_POS);
+	    mpMapData->at<uchar>(x, yScale-y) = 127; // to put (0,0) in leftdown corner.
+	}
+	
+	unsigned int xCam = (int) ((fxCam - fxMin) / MIN_DELTA_POS);
+	unsigned int yCam = (int) ((fyCam - fyMin) / MIN_DELTA_POS);
+	mpMapData->at<uchar>(xCam, yScale-yCam) = 255; // to put (0,0) in leftdown corner.
+	mpMapData->at<uchar>(xCam+1, yScale-yCam) = 255;
+	mpMapData->at<uchar>(xCam-1, yScale-yCam) = 255;
+	mpMapData->at<uchar>(xCam, yScale-yCam+1) = 255;
+	mpMapData->at<uchar>(xCam, yScale-yCam-1) = 255;
+		
+	if(tmp_count % 10 == 0){	
+		std::cout << "x max: " << fxMax << ", x min: " << fxMin << std::endl;
+		std::cout << "y max: " << fyMax << ", y min: " << fyMin << std::endl;
+		std::cout << "x Cam: " << fxCam << ", y Cam: " << fyCam << std::endl;
+		std::cout << "xScale: " << xScale << ", yScale: " << yScale << std::endl;
+		std::cout << "mMapSize: " << mMapSize << std::endl;
+		cv::imshow("Map2d", *mpMapData);
+		sleep(5);
+		cv::destroyWindow("Map2d");
+	}
+	tmp_count += 1;
+
+	/*
+	if (points.size() > 150){
+		std::cout << "Point world coordinates: " << std::endl;
+		std::cout << (points[87])->GetWorldPos() << std::endl;
+		std::cout << (points[35])->GetWorldPos() << std::endl;
+	}
+	*/
+}
+
+bool Map2d::isObstacleNear(){
+	// TODO
+	return true;
+}
+
+} // namespace ORB_SLAM2

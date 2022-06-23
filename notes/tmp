@@ -1,20 +1,4 @@
-    /*
-    if(tmp_count % 5 == 0){            
-        // show bin map
-        cv::Mat* binMap = GetOccupyMapImage();
-        Eigen::Vector2d arrowHead = mCamDirection + mCamPos;
-        Eigen::Vector2d arrowHead2dPos = Get2dPos(arrowHead(0), arrowHead(1));
-        unsigned int xArrowHead = arrowHead2dPos(0);
-        unsigned int zArrowHead = arrowHead2dPos(1);
-        
-        cv::arrowedLine(*binMap, cv::Point(xCam, mzScale-zCam), \
-            cv::Point(xArrowHead, mzScale-zArrowHead), 255, 1, 8, 0, 0.1);
-        ShowImage(*binMap, "Occupation map");
-    }
-    tmp_count += 1;
-    */
-
-    /*** error map ***/
+/*** error map ***/
 typedef std:unordered_map<g2o::OptimizableGraph::Edge*, Eigen::Vector2d> PosMap;
 typedef std:pair<g2o::OptimizableGraph::Edge*, Eigen::Vector2d> PosMapItem;
 
@@ -101,3 +85,47 @@ void Map2d::UpdateError(EdgeContainer& activeEdges){
     delete errMap;
     delete colorErrMap;
 }
+
+/*
+
+    if(bObstacleNear){
+        if (bKeysDense){
+            Move(MoveDirection::Backward, 3);
+        }
+        else if (!bKeysSparse){
+            Move(MoveDirection::Backward, 2);
+        }
+        else // bKeysSparse
+        {
+            Move(MoveDirection::Right, 4);
+        }
+    } // bObstacleNear
+
+    else if (!bObstacleFar) // middle distance
+    {
+        if (bKeysDense){
+            Move(MoveDirection::Backward, 2);
+        }
+        else if (!bKeysSparse){
+            Move(MoveDirection::Right, 4);
+        }
+        else // bKeysSparse
+        {
+            Move(MoveDirection::Forward, 2);
+        }
+    }
+    
+    else // bObstacleFar
+    {
+        if (bKeysDense){
+            Move(MoveDirection::TurnRight, 1);
+        }
+        else if (!bKeysSparse){
+            Move(MoveDirection::Forward, 2);
+        }
+        else {
+            Move(MoveDirection::Forward, 3);
+        }
+    } // end bObstacleFar
+
+*/
